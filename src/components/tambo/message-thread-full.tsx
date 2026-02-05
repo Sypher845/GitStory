@@ -5,6 +5,7 @@ import {
   MessageInput,
   MessageInputError,
   MessageInputFileButton,
+  MessageInputImportCodeButton,
   MessageInputMcpPromptButton,
   MessageInputMcpResourceButton,
   MessageInputSubmitButton,
@@ -17,6 +18,7 @@ import {
   MessageSuggestionsStatus,
 } from "@/components/tambo/message-suggestions";
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
+import { RepoContextBadge } from "@/components/tambo/repo-context-badge";
 import { MessageInputMcpConfigButton } from "@/components/tambo/message-input";
 import { ThreadContainer, useThreadContainerContext } from "./thread-container";
 import {
@@ -32,6 +34,7 @@ import {
 } from "@/components/tambo/thread-history";
 import { useMergeRefs } from "@/lib/thread-hooks";
 import type { Suggestion } from "@tambo-ai/react";
+import { useTamboThread } from "@tambo-ai/react";
 import type { VariantProps } from "class-variance-authority";
 import * as React from "react";
 
@@ -54,9 +57,23 @@ export interface MessageThreadFullProps extends React.HTMLAttributes<HTMLDivElem
 export const MessageThreadFull = React.forwardRef<
   HTMLDivElement,
   MessageThreadFullProps
->(({ className, variant, ...props }, ref) => {
+>(({
+  className, variant, ...props }, ref) => {
   const { containerRef, historyPosition } = useThreadContainerContext();
   const mergedRef = useMergeRefs<HTMLDivElement | null>(ref, containerRef);
+  const { startNewThread } = useTamboThread();
+
+  // Listen for repo change events to start a new thread (clears old context)
+  React.useEffect(() => {
+    const handleStartNewThread = () => {
+      startNewThread();
+    };
+
+    window.addEventListener("gitstory-start-new-thread", handleStartNewThread);
+    return () => {
+      window.removeEventListener("gitstory-start-new-thread", handleStartNewThread);
+    };
+  }, [startNewThread]);
 
   const threadHistorySidebar = (
     <ThreadHistory position={historyPosition}>
@@ -112,13 +129,17 @@ export const MessageThreadFull = React.forwardRef<
 
         {/* Message input */}
         <div className="px-4 pb-4">
+          {/* Show connected repo badge */}
+          <div className="mb-2">
+            <RepoContextBadge />
+          </div>
           <MessageInput>
             <MessageInputTextarea placeholder="Type your message or paste images..." />
             <MessageInputToolbar>
               <MessageInputFileButton />
               <MessageInputMcpPromptButton />
               <MessageInputMcpResourceButton />
-              {/* Uncomment this to enable client-side MCP config modal button */}
+              <MessageInputImportCodeButton />
               <MessageInputMcpConfigButton />
               <MessageInputSubmitButton />
             </MessageInputToolbar>

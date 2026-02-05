@@ -6,6 +6,7 @@ import {
   McpResourceButton,
 } from "@/components/tambo/mcp-components";
 import { McpConfigModal } from "./mcp-config-modal";
+import { ImportCodeModal } from "./import-code-modal";
 import {
   Tooltip,
   TooltipProvider,
@@ -29,6 +30,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import {
   ArrowUp,
   AtSign,
+  CodeXml,
   FileText,
   Image as ImageIcon,
   Paperclip,
@@ -158,17 +160,17 @@ function useCombinedResourceList(
     () =>
       mcpResources
         ? (
-            mcpResources as {
-              resource: { uri: string; name?: string };
-            }[]
-          ).map((entry) => ({
-            // Use the full URI (already includes serverKey prefix from MCP hook)
-            // When inserted as @{id}, parseResourceReferences will strip serverKey before sending to backend
-            id: entry.resource.uri,
-            name: entry.resource.name ?? entry.resource.uri,
-            icon: React.createElement(AtSign, { className: "w-4 h-4" }),
-            componentData: { type: "mcp-resource", data: entry },
-          }))
+          mcpResources as {
+            resource: { uri: string; name?: string };
+          }[]
+        ).map((entry) => ({
+          // Use the full URI (already includes serverKey prefix from MCP hook)
+          // When inserted as @{id}, parseResourceReferences will strip serverKey before sending to backend
+          id: entry.resource.uri,
+          name: entry.resource.name ?? entry.resource.uri,
+          icon: React.createElement(AtSign, { className: "w-4 h-4" }),
+          componentData: { type: "mcp-resource", data: entry },
+        }))
         : [],
     [mcpResources],
   );
@@ -233,11 +235,11 @@ function useCombinedPromptList(
     () =>
       mcpPrompts
         ? (mcpPrompts as { prompt: { name: string } }[]).map((entry) => ({
-            id: `mcp-prompt:${entry.prompt.name}`,
-            name: entry.prompt.name,
-            icon: React.createElement(FileText, { className: "w-4 h-4" }),
-            text: "", // Text will be fetched when selected via useTamboMcpPrompt
-          }))
+          id: `mcp-prompt:${entry.prompt.name}`,
+          name: entry.prompt.name,
+          icon: React.createElement(FileText, { className: "w-4 h-4" }),
+          text: "", // Text will be fetched when selected via useTamboMcpPrompt
+        }))
         : [],
     [mcpPrompts],
   );
@@ -891,7 +893,7 @@ const MessageInputTextarea = ({
         resources={resourceItems}
         onSearchPrompts={setPromptSearch}
         prompts={promptItems}
-        onResourceSelect={onResourceSelect ?? (() => {})}
+        onResourceSelect={onResourceSelect ?? (() => { })}
         onPromptSelect={handlePromptSelect}
       />
     </div>
@@ -1139,6 +1141,44 @@ const MessageInputMcpConfigButton = React.forwardRef<
   );
 });
 MessageInputMcpConfigButton.displayName = "MessageInput.McpConfigButton";
+
+// Import Code button - opens a modal to import GitHub repos
+const MessageInputImportCodeButton = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    className?: string;
+  }
+>(({ className, ...props }, ref) => {
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+
+  const buttonClasses = cn(
+    "w-10 h-10 rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    className,
+  );
+
+  return (
+    <>
+      <Tooltip content="Import code" side="top">
+        <button
+          ref={ref}
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className={buttonClasses}
+          aria-label="Import code"
+          data-slot="message-input-import-code"
+          {...props}
+        >
+          <CodeXml className="w-4 h-4" />
+        </button>
+      </Tooltip>
+      <ImportCodeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </>
+  );
+});
+MessageInputImportCodeButton.displayName = "MessageInput.ImportCodeButton";
 
 /**
  * Props for the MessageInputError component.
@@ -1596,6 +1636,7 @@ export {
   MessageInputContexts,
   MessageInputError,
   MessageInputFileButton,
+  MessageInputImportCodeButton,
   MessageInputMcpConfigButton,
   MessageInputMcpPromptButton,
   MessageInputMcpResourceButton,

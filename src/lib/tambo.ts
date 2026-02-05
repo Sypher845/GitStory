@@ -14,19 +14,104 @@ import {
   getCountryPopulations,
   getGlobalPopulationTrend,
 } from "@/services/population-stats";
+import {
+  getRepoInfo,
+  getRecentCommits,
+  getFileContent,
+  listRepoContents,
+} from "@/services/github-api";
 import type { TamboComponent } from "@tambo-ai/react";
 import { TamboTool } from "@tambo-ai/react";
 import { z } from "zod";
 
-/**
- * tools
- *
- * This array contains all the Tambo tools that are registered for use within the application.
- * Each tool is defined with its name, description, and expected props. The tools
- * can be controlled by AI to dynamically fetch data based on user interactions.
- */
-
 export const tools: TamboTool[] = [
+  // GitHub tools
+  {
+    name: "getRepoInfo",
+    description:
+      "Get information about the currently imported GitHub repository. Returns repo name, description, default branch, stars, forks, language, and last updated date. Use this to understand what repository the user is working with.",
+    tool: getRepoInfo,
+    inputSchema: z.object({}),
+    outputSchema: z.object({
+      success: z.boolean(),
+      data: z.object({
+        fullName: z.string(),
+        description: z.string().nullable(),
+        defaultBranch: z.string(),
+        stars: z.number(),
+        forks: z.number(),
+        language: z.string().nullable(),
+        lastUpdated: z.string(),
+        url: z.string(),
+      }).optional(),
+      error: z.string().optional(),
+    }),
+  },
+  {
+    name: "getRecentCommits",
+    description:
+      "Get recent commits from the currently imported GitHub repository. Returns commit SHA, message, author, date, and URL. Use this to see the latest changes and commit history.",
+    tool: getRecentCommits,
+    inputSchema: z.object({
+      count: z.number().optional().describe("Number of commits to fetch (default: 10, max: 100)"),
+    }),
+    outputSchema: z.object({
+      success: z.boolean(),
+      data: z.object({
+        repo: z.string(),
+        branch: z.string(),
+        commits: z.array(z.object({
+          sha: z.string(),
+          message: z.string(),
+          author: z.string(),
+          date: z.string(),
+          url: z.string(),
+        })),
+      }).optional(),
+      error: z.string().optional(),
+    }),
+  },
+  {
+    name: "getFileContent",
+    description:
+      "Get the contents of a specific file from the currently imported GitHub repository. Provide the file path relative to the repository root.",
+    tool: getFileContent,
+    inputSchema: z.object({
+      path: z.string().describe("File path relative to repository root (e.g., 'README.md', 'src/index.ts')"),
+    }),
+    outputSchema: z.object({
+      success: z.boolean(),
+      data: z.object({
+        path: z.string(),
+        content: z.string(),
+        size: z.number(),
+      }).optional(),
+      error: z.string().optional(),
+    }),
+  },
+  {
+    name: "listRepoContents",
+    description:
+      "List files and directories in a path of the currently imported GitHub repository. Use this to explore the repository structure.",
+    tool: listRepoContents,
+    inputSchema: z.object({
+      path: z.string().optional().describe("Directory path to list (default: repository root)"),
+    }),
+    outputSchema: z.object({
+      success: z.boolean(),
+      data: z.object({
+        path: z.string(),
+        items: z.array(z.object({
+          name: z.string(),
+          type: z.enum(["file", "dir"]),
+          path: z.string(),
+          size: z.number().optional(),
+        })),
+      }).optional(),
+      error: z.string().optional(),
+    }),
+  },
+  // Population Statistics Tools (demo)
   {
     name: "countryPopulation",
     description:
