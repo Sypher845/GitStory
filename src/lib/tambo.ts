@@ -10,6 +10,7 @@
 
 import { Graph, graphSchema } from "@/components/tambo/graph";
 import { CommitTimeline, commitTimelineSchema } from "@/components/tambo/commit-timeline";
+import { ContributorNetwork, contributorNetworkSchema } from "@/components/tambo/contributor-network";
 import { DataCard, dataCardSchema } from "@/components/ui/card-data";
 import {
   getCountryPopulations,
@@ -84,7 +85,7 @@ export const components: TamboComponent[] = [
   {
     name: "Graph",
     description:
-      "A component that renders various types of charts (bar, line, pie) using Recharts. Supports customizable data visualization with labels, datasets, and styling options.",
+      "A component that renders various types of charts (bar, line, pie) using Recharts. Use for visualizing numerical data, trends, comparisons, and statistics. Do NOT use this for showing contributors or team members - use ContributorNetwork for that instead.",
     component: Graph,
     propsSchema: graphSchema,
   },
@@ -101,6 +102,13 @@ export const components: TamboComponent[] = [
       "A component that displays a timeline of git commits grouped by month. Use when the user asks to see commit history, git log, repository activity, or wants to visualize changes over time. IMPORTANT: You MUST call get_commit for EACH commit to get the stats (additions/deletions) and files array - the list_commits endpoint does NOT include this data. Shows commit messages, authors, dates, line changes (+added/-removed), and expandable file change details.",
     component: CommitTimeline,
     propsSchema: commitTimelineSchema,
+  },
+  {
+    name: "ContributorNetwork",
+    description:
+      "ALWAYS use this component when showing repository contributors, team members, or people who worked on the project. Displays an interactive SVG network graph with circular nodes for each contributor showing their commit count, plus a sidebar with detailed stats. Use this instead of Graph/bar charts when showing contributor information.",
+    component: ContributorNetwork,
+    propsSchema: contributorNetworkSchema,
   },
   // Add more components here
 ];
