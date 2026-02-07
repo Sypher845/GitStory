@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTamboThreadInput } from "@tambo-ai/react";
 import { z } from "zod";
 
 const FileChangeSchema = z.object({
@@ -62,6 +63,22 @@ interface CommitTimelineProps {
 export function CommitTimeline({ data }: CommitTimelineProps) {
     const [filter, setFilter] = useState<"all" | "tagged">("all");
     const [expandedCommit, setExpandedCommit] = useState<string | null>(null);
+    const [loadingHeatmap, setLoadingHeatmap] = useState<string | null>(null);
+    const { setValue, submit } = useTamboThreadInput();
+
+    const triggerRiskHeatmap = async (e: React.MouseEvent, commitHash: string, commitMessage: string) => {
+        e.stopPropagation();
+        setLoadingHeatmap(commitHash);
+        try {
+            setValue(`Show risk heatmap analysis for commit ${commitHash} — "${commitMessage}"`);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            await submit({ streamResponse: true, resourceNames: {} });
+        } catch (err) {
+            console.error("Failed to trigger risk heatmap:", err);
+        } finally {
+            setLoadingHeatmap(null);
+        }
+    };
 
     // Handle undefined data during streaming
     if (!data || data.length === 0) {
@@ -266,6 +283,47 @@ export function CommitTimeline({ data }: CommitTimelineProps) {
                                                             </div>
                                                         </div>
                                                     </div>
+                                                </div>
+
+                                                {/* Risk Heatmap Button */}
+                                                <div className="mt-2 flex justify-end">
+                                                    <button
+                                                        onClick={(e) => triggerRiskHeatmap(e, commit.hash, commit.message)}
+                                                        disabled={loadingHeatmap === commit.hash}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all"
+                                                        style={{
+                                                            backgroundColor: loadingHeatmap === commit.hash ? "rgba(218, 54, 51, 0.15)" : "rgba(218, 54, 51, 0.08)",
+                                                            color: loadingHeatmap === commit.hash ? "#f85149" : "#f0883e",
+                                                            border: `1px solid ${loadingHeatmap === commit.hash ? "#da3633" : "rgba(218, 54, 51, 0.3)"}`,
+                                                            cursor: loadingHeatmap === commit.hash ? "wait" : "pointer",
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (loadingHeatmap !== commit.hash) {
+                                                                e.currentTarget.style.backgroundColor = "rgba(218, 54, 51, 0.18)";
+                                                                e.currentTarget.style.borderColor = "#da3633";
+                                                                e.currentTarget.style.color = "#f85149";
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (loadingHeatmap !== commit.hash) {
+                                                                e.currentTarget.style.backgroundColor = "rgba(218, 54, 51, 0.08)";
+                                                                e.currentTarget.style.borderColor = "rgba(218, 54, 51, 0.3)";
+                                                                e.currentTarget.style.color = "#f0883e";
+                                                            }
+                                                        }}
+                                                    >
+                                                        {loadingHeatmap === commit.hash ? (
+                                                            <motion.div
+                                                                animate={{ rotate: 360 }}
+                                                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                                            >
+                                                                <Shield className="w-3.5 h-3.5" />
+                                                            </motion.div>
+                                                        ) : (
+                                                            <Shield className="w-3.5 h-3.5" />
+                                                        )}
+                                                        Risk
+                                                    </button>
                                                 </div>
 
                                                 {/* Accordion - File Changes */}
