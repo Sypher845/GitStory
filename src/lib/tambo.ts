@@ -1,6 +1,7 @@
 import { CommitTimeline, commitTimelineSchema } from "@/components/tambo/commit-timeline";
 import { ContributorNetwork, contributorNetworkSchema } from "@/components/tambo/contributor-network";
 import { DiffViewer, diffViewerSchema } from "@/components/tambo/diff-viewer";
+import { PRSummary, prSummarySchema } from "@/components/tambo/pr-summary";
 import { RiskHeatmap, riskHeatmapSchema } from "@/components/tambo/risk-heatmap";
 import type { TamboComponent } from "@tambo-ai/react";
 import { TamboTool } from "@tambo-ai/react";
@@ -50,6 +51,12 @@ VALID STATES:
 MAX 1 ATTEMPT PER FILE. If github__get_file_contents fails, STOP and use empty string.`,
     component: DiffViewer,
     propsSchema: diffViewerSchema,
+  },
+  {
+    name: "PRSummary",
+    description: "Displays a comprehensive pull request summary with stats, reviewers, files changed, and metadata. Use this component when showing PR details, code review information, merge request summaries, or pull request overviews.",
+    component: PRSummary,
+    propsSchema: prSummarySchema,
   },
   {
     name: "RiskHeatmap",
