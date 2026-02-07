@@ -106,10 +106,8 @@ export const ImportCodeModal: React.FC<ImportCodeModalProps> = ({
                 })
             );
 
-            // Dispatch event to start a new thread (clears old conversation context)
-            window.dispatchEvent(
-                new CustomEvent("gitstory-start-new-thread")
-            );
+            // removed 'gitstory-start-new-thread' dispatch to keep the current conversation history
+            // preventing the component/context from "disappearing" or resetting the thread unexpectedly.
 
             // Dispatch event to send a hidden message to explore the repository
             const repoUrl = `https://github.com/${parsed.owner}/${parsed.repo}${parsed.branch ? `/tree/${parsed.branch}` : ''}`;

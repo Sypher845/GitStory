@@ -479,12 +479,16 @@ const MessageInputInternal = React.forwardRef<
   }, [setValue, thread.id]);
 
   React.useEffect(() => {
+    // Don't sync display value from Tambo value while submitting
+    // This prevents the input from showing the previous message during submission
+    if (isSubmitting) return;
+
     setDisplayValue(value);
     storeValueInSessionStorage(thread.id, value);
     if (value && editorRef.current) {
       editorRef.current.focus();
     }
-  }, [value, thread.id]);
+  }, [value, thread.id, isSubmitting]);
 
   const handleSubmit = React.useCallback(
     async (e: React.FormEvent) => {

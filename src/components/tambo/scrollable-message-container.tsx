@@ -55,21 +55,36 @@ export const ScrollableMessageContainer = React.forwardRef<
     [thread?.generationStage],
   );
 
+  // Use a ref for immediate access to the latest scroll state
+  // This prevents the "fighting" behavior where a render update might use stale state
+  const shouldAutoscrollRef = useRef(shouldAutoscroll);
+
+  // Sync ref with state
+  useEffect(() => {
+    shouldAutoscrollRef.current = shouldAutoscroll;
+  }, [shouldAutoscroll]);
+
   // Handle scroll events to detect user scrolling
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
 
     const { scrollTop, scrollHeight, clientHeight } =
       scrollContainerRef.current;
-    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 8; // 8px tolerance for rounding
 
-    // If user scrolled up, disable autoscroll
+    // Check if user is at the bottom (with tolerance)
+    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+
+    // IMPORTANT: Check scroll direction relative to the last known position
+    // If scrollTop DECREASED, the user is scrolling UP.
     if (scrollTop < lastScrollTopRef.current) {
+      // User scrolled up - disable autoscroll immediately
       setShouldAutoscroll(false);
+      shouldAutoscrollRef.current = false;
     }
     // If user is at bottom, enable autoscroll
     else if (isAtBottom) {
       setShouldAutoscroll(true);
+      shouldAutoscrollRef.current = true;
     }
 
     lastScrollTopRef.current = scrollTop;
@@ -77,9 +92,11 @@ export const ScrollableMessageContainer = React.forwardRef<
 
   // Auto-scroll to bottom when message content changes
   useEffect(() => {
-    if (scrollContainerRef.current && messagesContent && shouldAutoscroll) {
+    // Only scroll if the REF says we should (immediate check)
+    if (scrollContainerRef.current && messagesContent && shouldAutoscrollRef.current) {
       const scroll = () => {
-        if (scrollContainerRef.current) {
+        // Double check ref inside the callback in case it changed since schedule
+        if (scrollContainerRef.current && shouldAutoscrollRef.current) {
           scrollContainerRef.current.scrollTo({
             top: scrollContainerRef.current.scrollHeight,
             behavior: "smooth",
@@ -96,17 +113,14 @@ export const ScrollableMessageContainer = React.forwardRef<
         return () => clearTimeout(timeoutId);
       }
     }
-  }, [messagesContent, generationStage, shouldAutoscroll]);
+  }, [messagesContent, generationStage]); // Removed shouldAutoscroll from dependency as we use ref, but logically the effect runs on content change mostly
 
   return (
     <div
       ref={scrollContainerRef}
       onScroll={handleScroll}
       className={cn(
-        "flex-1 overflow-y-auto",
-        "[&::-webkit-scrollbar]:w-[6px]",
-        "[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30",
-        "[&::-webkit-scrollbar:horizontal]:h-[4px]",
+        "flex-1 overflow-y-auto chat-scrollbar",
         className,
       )}
       data-slot="scrollable-message-container"

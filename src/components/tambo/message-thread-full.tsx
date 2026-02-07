@@ -216,6 +216,9 @@ export const MessageThreadFull = React.forwardRef<
     },
   ];
 
+  // Check if thread has any messages (to determine layout)
+  const hasMessages = thread?.messages && thread.messages.length > 0;
+
   return (
     <div className="flex h-full w-full">
       {/* Thread History Sidebar - rendered first if history is on the left */}
@@ -227,38 +230,80 @@ export const MessageThreadFull = React.forwardRef<
         className={className}
         {...props}
       >
-        <ScrollableMessageContainer className="p-4">
-          <ThreadContent variant={variant}>
-            <ThreadContentMessages />
-          </ThreadContent>
-        </ScrollableMessageContainer>
+        {hasMessages ? (
+          // Normal conversation layout - messages at top, input at bottom
+          <>
+            <ScrollableMessageContainer className="p-4">
+              <ThreadContent variant={variant}>
+                <ThreadContentMessages />
+              </ThreadContent>
+            </ScrollableMessageContainer>
 
-        {/* Message suggestions status */}
-        <MessageSuggestions>
-          <MessageSuggestionsStatus />
-        </MessageSuggestions>
+            {/* Message suggestions status */}
+            <MessageSuggestions>
+              <MessageSuggestionsStatus />
+            </MessageSuggestions>
 
-        {/* Message input */}
-        <div className="px-4 pb-4">
-          {/* Show connected repo badge */}
-          <div className="mb-2">
-            <RepoContextBadge />
+            {/* Message input */}
+            <div className="px-4 pb-4">
+              {/* Show connected repo badge */}
+              <div className="mb-2">
+                <RepoContextBadge />
+              </div>
+              <MessageInput>
+                <MessageInputTextarea placeholder="Type your message or paste images..." />
+                <MessageInputToolbar>
+                  <MessageInputFileButton />
+                  <MessageInputImportCodeButton />
+                  <MessageInputSubmitButton />
+                </MessageInputToolbar>
+                <MessageInputError />
+              </MessageInput>
+            </div>
+
+            {/* Message suggestions */}
+            <MessageSuggestions initialSuggestions={defaultSuggestions}>
+              <MessageSuggestionsList />
+            </MessageSuggestions>
+          </>
+        ) : (
+          // Empty state - centered welcome layout (like Gemini/Claude)
+          <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8">
+            {/* Welcome title */}
+            <div className="mb-8 text-center">
+              <h1 className="text-3xl font-medium text-foreground mb-2">
+                Where should we start?
+              </h1>
+              <p className="text-muted-foreground">
+                Ask me about GitHub repositories, commits, or any code questions
+              </p>
+            </div>
+
+            {/* Centered message input - wider container */}
+            <div className="w-full max-w-4xl">
+              {/* Show connected repo badge */}
+              <div className="mb-2">
+                <RepoContextBadge />
+              </div>
+              <MessageInput>
+                <MessageInputTextarea placeholder="Type your message or paste images..." />
+                <MessageInputToolbar>
+                  <MessageInputFileButton />
+                  <MessageInputImportCodeButton />
+                  <MessageInputSubmitButton />
+                </MessageInputToolbar>
+                <MessageInputError />
+              </MessageInput>
+            </div>
+
+            {/* Message suggestions below the input */}
+            <div className="w-full max-w-4xl mt-4">
+              <MessageSuggestions initialSuggestions={defaultSuggestions}>
+                <MessageSuggestionsList />
+              </MessageSuggestions>
+            </div>
           </div>
-          <MessageInput>
-            <MessageInputTextarea placeholder="Type your message or paste images..." />
-            <MessageInputToolbar>
-              <MessageInputFileButton />
-              <MessageInputImportCodeButton />
-              <MessageInputSubmitButton />
-            </MessageInputToolbar>
-            <MessageInputError />
-          </MessageInput>
-        </div>
-
-        {/* Message suggestions */}
-        <MessageSuggestions initialSuggestions={defaultSuggestions}>
-          <MessageSuggestionsList />
-        </MessageSuggestions>
+        )}
       </ThreadContainer>
 
       {/* Thread History Sidebar - rendered last if history is on the right */}

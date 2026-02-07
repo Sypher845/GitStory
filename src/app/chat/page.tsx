@@ -18,7 +18,7 @@ function ChatContent() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <MessageThreadFull className="max-w-4xl mx-auto h-full" />
+        <MessageThreadFull className="max-w-6xl mx-auto h-full" />
       </div>
     </div>
   );

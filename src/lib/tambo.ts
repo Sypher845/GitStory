@@ -1,80 +1,16 @@
-import { Graph, graphSchema } from "@/components/tambo/graph";
 import { CommitTimeline, commitTimelineSchema } from "@/components/tambo/commit-timeline";
 import { ContributorNetwork, contributorNetworkSchema } from "@/components/tambo/contributor-network";
 import { DiffViewer, diffViewerSchema } from "@/components/tambo/diff-viewer";
 import { RiskHeatmap, riskHeatmapSchema } from "@/components/tambo/risk-heatmap";
-import { DataCard, dataCardSchema } from "@/components/ui/card-data";
-import {
-  getCountryPopulations,
-  getGlobalPopulationTrend,
-} from "@/services/population-stats";
 import type { TamboComponent } from "@tambo-ai/react";
 import { TamboTool } from "@tambo-ai/react";
-import { z } from "zod";
 
-export const tools: TamboTool[] = [
-  {
-    name: "countryPopulation",
-    description: "A tool to get population statistics by country with advanced filtering options",
-    tool: getCountryPopulations,
-    inputSchema: z.object({
-      continent: z.string().optional(),
-      sortBy: z.enum(["population", "growthRate"]).optional(),
-      limit: z.number().optional(),
-      order: z.enum(["asc", "desc"]).optional(),
-    }),
-    outputSchema: z.array(
-      z.object({
-        countryCode: z.string(),
-        countryName: z.string(),
-        continent: z.enum([
-          "Asia",
-          "Africa",
-          "Europe",
-          "North America",
-          "South America",
-          "Oceania",
-        ]),
-        population: z.number(),
-        year: z.number(),
-        growthRate: z.number(),
-      }),
-    ),
-  },
-  {
-    name: "globalPopulation",
-    description: "A tool to get global population trends with optional year range filtering",
-    tool: getGlobalPopulationTrend,
-    inputSchema: z.object({
-      startYear: z.number().optional(),
-      endYear: z.number().optional(),
-    }),
-    outputSchema: z.array(
-      z.object({
-        year: z.number(),
-        population: z.number(),
-        growthRate: z.number(),
-      }),
-    ),
-  },
-];
+export const tools: TamboTool[] = [];
 
 export const components: TamboComponent[] = [
   {
-    name: "Graph",
-    description: "A component that renders various types of charts (bar, line, pie) using Recharts. Supports customizable data visualization with labels, datasets, and styling options.",
-    component: Graph,
-    propsSchema: graphSchema,
-  },
-  {
-    name: "DataCard",
-    description: "A component that displays options as clickable cards with links and summaries with the ability to select multiple items.",
-    component: DataCard,
-    propsSchema: dataCardSchema,
-  },
-  {
     name: "CommitTimeline",
-    description: "Displays a timeline of git commits grouped by month. Use this component when the user asks about commits, commit history, or repository activity. Shows commit messages, authors, dates, line changes, and file details in a visual timeline format.",
+    description: "Displays a timeline of git commits grouped by month. Use this component when the user asks about commits, commit history, or repository activity. CRITICAL: You MUST fetch and include the 'files' array (path, added, removed) for every commit. If the initial commit list doesn't have file stats, you MUST fetch commit details to get them. Do not show '0 files changed' unless it's true.",
     component: CommitTimeline,
     propsSchema: commitTimelineSchema,
   },
@@ -86,7 +22,32 @@ export const components: TamboComponent[] = [
   },
   {
     name: "DiffViewer",
-    description: "Displays a side-by-side or unified diff view of code changes with syntax highlighting and annotations. Use this component when showing file changes, code differences, commit diffs, or comparing code versions.",
+    description: `Displays a diff view showing what changed IN a specific commit.
+
+CRITICAL RULES:
+1. beforeCode = file BEFORE commit (at parent SHA)
+2. afterCode = file AFTER commit (at commit SHA)
+3. NEVER use "^" or "~1" syntax - resolve the actual parent SHA first via commit list/details.
+
+WORKFLOW:
+1. Get commit details to find parent SHA (e.g., commit abc123 has parent def456)
+2. Try to fetch file at PARENT SHA for beforeCode
+3. Try to fetch file at COMMIT SHA for afterCode
+4. IMMEDIATELY render DiffViewer with whatever you have
+
+IF FILE FETCH FAILS:
+- DO NOT RETRY the same call
+- Use "" (empty string) for that version
+- Still render DiffViewer with fileName so user sees helpful error
+- Example: If both fail, call DiffViewer with fileName="lib/lexer.cpp", commitHash="5cb2663", beforeCode="", afterCode=""
+
+VALID STATES:
+- Both empty + fileName = shows "content unavailable" message (OK!)
+- beforeCode empty = file was ADDED
+- afterCode empty = file was DELETED
+- Both have content = normal diff
+
+MAX 1 ATTEMPT PER FILE. If github__get_file_contents fails, STOP and use empty string.`,
     component: DiffViewer,
     propsSchema: diffViewerSchema,
   },

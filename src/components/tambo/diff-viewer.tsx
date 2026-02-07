@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Info, AlertTriangle, XCircle, Lightbulb } from "lucide-react";
 import { z } from "zod";
@@ -36,18 +36,76 @@ interface DiffViewerProps {
     commitHash?: string;
 }
 
+interface DiffLine {
+    type: "unchanged" | "removed" | "added";
+    lineNumber: number;
+    content: string;
+}
+
+// Simple diff function - computes line-by-line diff
+function computeDiff(beforeCode: string, afterCode: string): DiffLine[] {
+    const beforeLines = (beforeCode || "").split("\n");
+    const afterLines = (afterCode || "").split("\n");
+
+    // Limit to prevent hangs
+    const MAX_LINES = 500;
+    const before = beforeLines.slice(0, MAX_LINES);
+    const after = afterLines.slice(0, MAX_LINES);
+
+    const result: DiffLine[] = [];
+    const maxLen = Math.max(before.length, after.length);
+
+    for (let i = 0; i < maxLen; i++) {
+        const beforeLine = before[i];
+        const afterLine = after[i];
+
+        if (beforeLine === undefined && afterLine !== undefined) {
+            result.push({ type: "added", lineNumber: i + 1, content: afterLine });
+        } else if (beforeLine !== undefined && afterLine === undefined) {
+            result.push({ type: "removed", lineNumber: i + 1, content: beforeLine });
+        } else if (beforeLine === afterLine) {
+            result.push({ type: "unchanged", lineNumber: i + 1, content: afterLine || "" });
+        } else {
+            result.push({ type: "removed", lineNumber: i + 1, content: beforeLine || "" });
+            result.push({ type: "added", lineNumber: i + 1, content: afterLine || "" });
+        }
+    }
+
+    return result;
+}
+
 export function DiffViewer({
-    fileName = "",
-    beforeCode = "",
-    afterCode = "",
-    language = "javascript",
-    annotations = [],
+    fileName: rawFileName,
+    beforeCode: rawBeforeCode,
+    afterCode: rawAfterCode,
+    language: rawLanguage,
+    annotations: rawAnnotations,
     commitHash,
 }: DiffViewerProps) {
+    // Null-safe prop defaults (handles both undefined AND null)
+    const fileName = rawFileName ?? "";
+    const beforeCode = rawBeforeCode ?? "";
+    const afterCode = rawAfterCode ?? "";
+    const language = rawLanguage ?? "javascript";
+    const safeAnnotations = rawAnnotations ?? [];
+
     const [viewMode, setViewMode] = useState<"split" | "unified">("split");
     const [showAnnotations, setShowAnnotations] = useState(true);
 
-    // Handle undefined data during streaming
+    // Memoize the diff computation
+    const diffLines = useMemo(() => {
+        return computeDiff(beforeCode, afterCode);
+    }, [beforeCode, afterCode]);
+
+    // Get line counts for display - MUST be before any early returns
+    const beforeLines = useMemo(() => (beforeCode || "").split("\n"), [beforeCode]);
+    const afterLines = useMemo(() => (afterCode || "").split("\n"), [afterCode]);
+
+    // Precompute sets for O(1) lookup in split view - MUST be before any early returns
+    const beforeLinesSet = useMemo(() => new Set(beforeLines), [beforeLines]);
+    const afterLinesSet = useMemo(() => new Set(afterLines), [afterLines]);
+
+    // Handle undefined data during streaming (loading state)
     if (!fileName && !beforeCode && !afterCode) {
         return (
             <div className="rounded-xl p-8" style={{ backgroundColor: "#161b22", border: "1px solid #30363d" }}>
@@ -60,51 +118,40 @@ export function DiffViewer({
         );
     }
 
-    // Simple diff algorithm
-    const beforeLines = (beforeCode || "").split("\n");
-    const afterLines = (afterCode || "").split("\n");
-
-    // Create unified diff lines
-    const diffLines: Array<{
-        type: "unchanged" | "removed" | "added";
-        lineNumber: number;
-        content: string;
-    }> = [];
-
-    let beforeIdx = 0;
-    let afterIdx = 0;
-
-    while (beforeIdx < beforeLines.length || afterIdx < afterLines.length) {
-        const beforeLine = beforeLines[beforeIdx];
-        const afterLine = afterLines[afterIdx];
-
-        if (beforeLine === afterLine) {
-            diffLines.push({
-                type: "unchanged",
-                lineNumber: afterIdx + 1,
-                content: afterLine || "",
-            });
-            beforeIdx++;
-            afterIdx++;
-        } else if (!afterLines.includes(beforeLine) && beforeLine !== undefined) {
-            diffLines.push({
-                type: "removed",
-                lineNumber: beforeIdx + 1,
-                content: beforeLine,
-            });
-            beforeIdx++;
-        } else {
-            diffLines.push({
-                type: "added",
-                lineNumber: afterIdx + 1,
-                content: afterLine || "",
-            });
-            afterIdx++;
-        }
+    // Handle case where file name is provided but content couldn't be fetched
+    if (fileName && !beforeCode && !afterCode) {
+        return (
+            <div className="rounded-xl p-6" style={{ backgroundColor: "#161b22", border: "1px solid #30363d" }}>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#e09e13" }} />
+                    <h2 style={{ color: "#e6edf3", fontSize: "1.25rem", fontWeight: "600" }}>
+                        {fileName}
+                    </h2>
+                    {commitHash && (
+                        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: "#21262d", color: "#7d8590" }}>
+                            {commitHash}
+                        </span>
+                    )}
+                </div>
+                <div className="p-4 rounded-lg" style={{ backgroundColor: "#2d1f00", border: "1px solid #e09e13" }}>
+                    <p style={{ color: "#f0c541" }}>
+                        ⚠️ File content could not be retrieved. This may happen if:
+                    </p>
+                    <ul className="mt-2 ml-4 list-disc" style={{ color: "#c9d1d9" }}>
+                        <li>The file was renamed or moved in this commit</li>
+                        <li>The file is binary or too large</li>
+                        <li>API rate limits were reached</li>
+                    </ul>
+                    <p className="mt-3" style={{ color: "#7d8590" }}>
+                        Try viewing this file directly on GitHub.
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     const getAnnotationForLine = (lineNumber: number) => {
-        return annotations.find((a) => a.line === lineNumber);
+        return safeAnnotations.find((a) => a.line === lineNumber);
     };
 
     const getAnnotationStyle = (type: Annotation["type"]) => {
@@ -117,6 +164,8 @@ export function DiffViewer({
                 return { bg: "#0c2d6b", border: "#58a6ff", text: "#58a6ff" };
             case "insight":
                 return { bg: "#271c3a", border: "#a371f7", text: "#d2a8ff" };
+            default:
+                return { bg: "#1f2937", border: "#374151", text: "#9ca3af" };
         }
     };
 
@@ -133,44 +182,11 @@ export function DiffViewer({
         }
     };
 
-    // Simple syntax highlighting
-    const highlightSyntax = (code: string, lang: string) => {
-        if (lang === "javascript" || lang === "typescript" || lang === "tsx" || lang === "jsx") {
-            const keywords = [
-                "const", "let", "var", "function", "return", "if", "else", "for", "while",
-                "class", "import", "export", "async", "await", "interface", "type"
-            ];
-            let highlighted = code;
-            keywords.forEach((keyword) => {
-                const regex = new RegExp(`\\b(${keyword})\\b`, "g");
-                highlighted = highlighted.replace(
-                    regex,
-                    '<span style="color: #ff7b72; font-weight: 600;">$1</span>'
-                );
-            });
-
-            // Strings
-            highlighted = highlighted.replace(
-                /(['"`])(.*?)\1/g,
-                '<span style="color: #a5d6ff;">$1$2$1</span>'
-            );
-
-            // Comments
-            highlighted = highlighted.replace(
-                /(\/\/.*$)/gm,
-                '<span style="color: #7d8590; font-style: italic;">$1</span>'
-            );
-
-            return highlighted;
-        }
-        return code;
-    };
-
-    const safeAnnotations = annotations ?? [];
+    // safeAnnotations is already defined at the top with null coalescing
 
     // Calculate dynamic height based on max lines (24px per line, capped at 720px for ~30 lines)
     const lineHeight = 24;
-    const maxLines = Math.max(beforeLines.length, afterLines.length);
+    const maxLines = Math.min(Math.max(beforeLines.length, afterLines.length), 500);
     const panelHeight = Math.min(maxLines * lineHeight, 720);
 
     return (
@@ -190,13 +206,8 @@ export function DiffViewer({
                                 {fileName}
                                 {commitHash && (
                                     <span
-                                        className="ml-2 px-2 py-1 rounded text-xs"
-                                        style={{
-                                            backgroundColor: "#0d1117",
-                                            color: "#7d8590",
-                                            fontFamily: "monospace",
-                                            border: "1px solid #30363d",
-                                        }}
+                                        className="ml-2 px-2 py-0.5 rounded"
+                                        style={{ backgroundColor: "#30363d", color: "#7d8590" }}
                                     >
                                         {commitHash}
                                     </span>
@@ -204,45 +215,41 @@ export function DiffViewer({
                             </p>
                         </div>
                     </div>
-
                     <div className="flex items-center gap-3">
-                        <div className="flex rounded-lg p-1" style={{ backgroundColor: "#0d1117" }}>
+                        <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #30363d" }}>
                             <button
                                 onClick={() => setViewMode("split")}
-                                className="px-4 py-2 rounded text-sm transition-all"
+                                className="px-4 py-2 text-sm transition-colors"
                                 style={{
-                                    backgroundColor: viewMode === "split" ? "#238636" : "transparent",
+                                    backgroundColor: viewMode === "split" ? "#238636" : "#21262d",
                                     color: viewMode === "split" ? "#ffffff" : "#7d8590",
-                                    fontWeight: viewMode === "split" ? "600" : "400",
                                 }}
                             >
                                 Split
                             </button>
                             <button
                                 onClick={() => setViewMode("unified")}
-                                className="px-4 py-2 rounded text-sm transition-all"
+                                className="px-4 py-2 text-sm transition-colors"
                                 style={{
-                                    backgroundColor: viewMode === "unified" ? "#238636" : "transparent",
+                                    backgroundColor: viewMode === "unified" ? "#238636" : "#21262d",
                                     color: viewMode === "unified" ? "#ffffff" : "#7d8590",
-                                    fontWeight: viewMode === "unified" ? "600" : "400",
                                 }}
                             >
                                 Unified
                             </button>
                         </div>
-
                         {safeAnnotations.length > 0 && (
                             <button
                                 onClick={() => setShowAnnotations(!showAnnotations)}
-                                className="px-4 py-2 rounded-lg text-sm transition-all"
+                                className="px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
                                 style={{
-                                    backgroundColor: showAnnotations ? "#a371f7" : "#0d1117",
-                                    color: showAnnotations ? "#0d1117" : "#7d8590",
-                                    fontWeight: showAnnotations ? "600" : "400",
-                                    border: showAnnotations ? "none" : "1px solid #30363d",
+                                    backgroundColor: showAnnotations ? "#238636" : "#21262d",
+                                    color: showAnnotations ? "#ffffff" : "#7d8590",
+                                    border: "1px solid #30363d",
                                 }}
                             >
-                                {showAnnotations ? "🏷️ Annotations" : "Show Annotations"}
+                                <Lightbulb className="w-4 h-4" />
+                                Annotations
                             </button>
                         )}
                     </div>
@@ -269,6 +276,16 @@ export function DiffViewer({
                         </span>
                     </div>
                 </div>
+
+                {/* Truncation warning */}
+                {(beforeLines.length > 500 || afterLines.length > 500) && (
+                    <div className="mt-4 flex items-center gap-2 p-3 rounded-lg text-sm" style={{ backgroundColor: "#3d2c00", border: "1px solid #e09e13" }}>
+                        <AlertTriangle className="w-4 h-4" style={{ color: "#f0c541" }} />
+                        <span style={{ color: "#f0c541" }}>
+                            Large file: Showing first 500 lines only. Full file has {Math.max(beforeLines.length, afterLines.length)} lines.
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Diff Content */}
@@ -291,8 +308,8 @@ export function DiffViewer({
                             </div>
                             <div className="overflow-x-auto overflow-y-auto" style={{ fontFamily: "monospace", fontSize: "0.875rem", height: `${panelHeight}px` }}>
                                 <div style={{ minWidth: "max-content" }}>
-                                    {beforeLines.map((line, idx) => {
-                                        const isRemoved = !afterLines.includes(line);
+                                    {beforeLines.slice(0, 500).map((line, idx) => {
+                                        const isRemoved = !afterLinesSet.has(line);
                                         const bgColor = isRemoved ? "#3d1319" : "transparent";
                                         const hoverBg = isRemoved ? "#4d1a1f" : "#161b22";
                                         return (
@@ -313,7 +330,7 @@ export function DiffViewer({
                                                     className="flex-1 px-4 py-1 whitespace-pre"
                                                     style={{ color: isRemoved ? "#f85149" : "#e6edf3" }}
                                                 >
-                                                    <span dangerouslySetInnerHTML={{ __html: highlightSyntax(line, language) }} />
+                                                    {line}
                                                 </div>
                                             </div>
                                         );
@@ -334,10 +351,10 @@ export function DiffViewer({
                             </div>
                             <div className="overflow-x-auto overflow-y-auto" style={{ fontFamily: "monospace", fontSize: "0.875rem", height: `${panelHeight}px` }}>
                                 <div style={{ minWidth: "max-content" }}>
-                                    {afterLines.map((line, idx) => {
+                                    {afterLines.slice(0, 500).map((line, idx) => {
                                         const annotation = getAnnotationForLine(idx + 1);
                                         const annotationStyle = annotation ? getAnnotationStyle(annotation.type) : null;
-                                        const isAdded = !beforeLines.includes(line);
+                                        const isAdded = !beforeLinesSet.has(line);
                                         const bgColor = isAdded ? "#033a16" : "transparent";
                                         const hoverBg = isAdded ? "#044a1c" : "#161b22";
                                         return (
@@ -358,7 +375,7 @@ export function DiffViewer({
                                                         className="flex-1 px-4 py-1 whitespace-pre"
                                                         style={{ color: isAdded ? "#3fb950" : "#e6edf3" }}
                                                     >
-                                                        <span dangerouslySetInnerHTML={{ __html: highlightSyntax(line, language) }} />
+                                                        {line}
                                                     </div>
                                                 </div>
 
@@ -452,7 +469,7 @@ export function DiffViewer({
                                                 className="flex-1 px-4 py-1 whitespace-pre"
                                                 style={{ color: textColor }}
                                             >
-                                                <span dangerouslySetInnerHTML={{ __html: highlightSyntax(line.content, language) }} />
+                                                {line.content}
                                             </div>
                                         </div>
 
