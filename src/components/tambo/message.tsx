@@ -594,7 +594,7 @@ const SamplingSubThread = ({
                   className={cn(
                     "whitespace-pre-wrap",
                     m.role === "assistant" &&
-                      "bg-muted/50 rounded-md p-2 inline-block w-fit",
+                    "bg-muted/50 rounded-md p-2 inline-block w-fit",
                   )}
                 >
                   {getSafeContent(m.content)}
@@ -980,8 +980,78 @@ export type MessageRenderedComponentAreaProps =
   React.HTMLAttributes<HTMLDivElement>;
 
 /**
+ * Known component name mappings for better display names
+ */
+const COMPONENT_DISPLAY_NAMES: Record<string, { title: string; subtitle: string }> = {
+  "DiffViewer": { title: "Diff Viewer", subtitle: "Code Comparison" },
+  "PRSummary": { title: "PR Summary", subtitle: "Pull Request Details" },
+  "CommitTimeline": { title: "Commit Timeline", subtitle: "Commit History" },
+  "RiskHeatmap": { title: "Risk Heatmap", subtitle: "Code Quality Analysis" },
+  "FileViewer": { title: "File Viewer", subtitle: "File Contents" },
+};
+
+/**
+ * Gets a human-readable component type name by traversing the React element tree
+ */
+function getComponentInfo(component: React.ReactNode): { title: string; subtitle: string } {
+  if (!React.isValidElement(component)) {
+    return { title: "Component", subtitle: "Interactive Component" };
+  }
+
+  // Try to get the component type name
+  const type = component.type;
+  let typeName = "";
+
+  if (typeof type === "function") {
+    typeName = type.name || "";
+  } else if (typeof type === "string") {
+    typeName = type;
+  }
+
+  // Check if it's a known component
+  for (const [key, value] of Object.entries(COMPONENT_DISPLAY_NAMES)) {
+    if (typeName.toLowerCase().includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+
+  // Try to infer from the component's children
+  const props = component.props as { children?: React.ReactNode };
+  if (props?.children && React.isValidElement(props.children)) {
+    const childType = props.children.type;
+    if (typeof childType === "function" && childType.name) {
+      for (const [key, value] of Object.entries(COMPONENT_DISPLAY_NAMES)) {
+        if (childType.name.toLowerCase().includes(key.toLowerCase())) {
+          return value;
+        }
+      }
+    }
+  }
+
+  // Fallback: try to detect from type name patterns
+  const lowerTypeName = typeName.toLowerCase();
+  if (lowerTypeName.includes("diff")) {
+    return { title: "Diff Viewer", subtitle: "Code Comparison" };
+  }
+  if (lowerTypeName.includes("pr") || lowerTypeName.includes("pull")) {
+    return { title: "PR Summary", subtitle: "Pull Request Details" };
+  }
+  if (lowerTypeName.includes("commit") || lowerTypeName.includes("timeline")) {
+    return { title: "Commit Timeline", subtitle: "Commit History" };
+  }
+  if (lowerTypeName.includes("risk") || lowerTypeName.includes("heatmap")) {
+    return { title: "Risk Heatmap", subtitle: "Code Quality Analysis" };
+  }
+  if (lowerTypeName.includes("file")) {
+    return { title: "File Viewer", subtitle: "File Contents" };
+  }
+
+  return { title: typeName || "Component", subtitle: "Interactive Component" };
+}
+
+/**
  * Displays the `renderedComponent` associated with an assistant message.
- * Shows a button to view in canvas if a canvas space exists, otherwise renders inline.
+ * Shows a Claude-style artifact card if canvas exists, otherwise renders inline.
  * Only renders if the message role is 'assistant' and `message.renderedComponent` exists.
  * @component Message.RenderedComponentArea
  */
@@ -990,26 +1060,6 @@ const MessageRenderedComponentArea = React.forwardRef<
   MessageRenderedComponentAreaProps
 >(({ className, children, ...props }, ref) => {
   const { message, role } = useMessageContext();
-  const [canvasExists, setCanvasExists] = React.useState(false);
-
-  // Check if canvas exists on mount and window resize
-  React.useEffect(() => {
-    const checkCanvasExists = () => {
-      const canvas = document.querySelector('[data-canvas-space="true"]');
-      setCanvasExists(!!canvas);
-    };
-
-    // Check on mount
-    checkCanvasExists();
-
-    // Set up resize listener
-    window.addEventListener("resize", checkCanvasExists);
-
-    // Clean up
-    return () => {
-      window.removeEventListener("resize", checkCanvasExists);
-    };
-  }, []);
 
   if (
     !message.renderedComponent ||
@@ -1019,6 +1069,22 @@ const MessageRenderedComponentArea = React.forwardRef<
     return null;
   }
 
+  // Get component info using local detection
+  const componentInfo = getComponentInfo(message.renderedComponent);
+
+  const handleOpenInCanvas = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tambo:showComponent", {
+          detail: {
+            messageId: message.id,
+            component: message.renderedComponent,
+          },
+        }),
+      );
+    }
+  };
+
   return (
     <div
       ref={ref}
@@ -1026,32 +1092,48 @@ const MessageRenderedComponentArea = React.forwardRef<
       data-slot="message-rendered-component-area"
       {...props}
     >
-      {children ??
-        (canvasExists ? (
-          <div className="flex justify-start pl-4">
-            <button
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(
-                    new CustomEvent("tambo:showComponent", {
-                      detail: {
-                        messageId: message.id,
-                        component: message.renderedComponent,
-                      },
-                    }),
-                  );
-                }
-              }}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 cursor-pointer group"
-              aria-label="View component in canvas"
-            >
-              View component
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="w-full pt-2 px-2">{message.renderedComponent}</div>
-        ))}
+      {children ?? (
+        // Always show Claude-style artifact card
+        <div className="pl-4 pt-2 pb-1">
+          <button
+            onClick={handleOpenInCanvas}
+            className="w-full max-w-md bg-[#161b22] hover:bg-[#1c2128] border border-[#30363d] hover:border-[#3d444d] rounded-lg p-3 transition-all duration-200 cursor-pointer group text-left"
+            aria-label={`Open ${componentInfo.title} in canvas`}
+          >
+            <div className="flex items-center gap-3">
+              {/* Icon container */}
+              <div className="flex-shrink-0 w-10 h-10 rounded-md bg-[#21262d] flex items-center justify-center">
+                <svg
+                  className="w-5 h-5 text-[#7d8590]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="16,18 22,18 22,12" />
+                  <polyline points="8,6 2,6 2,12" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                </svg>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-[#e6edf3] truncate">
+                  {componentInfo.title}
+                </div>
+                <div className="text-xs text-[#7d8590] truncate">
+                  {componentInfo.subtitle}
+                </div>
+              </div>
+
+              {/* Open button */}
+              <div className="flex-shrink-0 px-3 py-1.5 rounded-md bg-[#21262d] group-hover:bg-[#30363d] text-xs font-medium text-[#e6edf3] transition-colors">
+                Open
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
     </div>
   );
 });

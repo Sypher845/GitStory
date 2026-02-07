@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const authUrl = new URL("https://github.com/login/oauth/authorize");
     authUrl.searchParams.set("client_id", clientId);
     authUrl.searchParams.set("redirect_uri", redirectUri);
-    authUrl.searchParams.set("scope", "repo read:user");
+    authUrl.searchParams.set("scope", "repo read:user copilot");
     authUrl.searchParams.set("allow_signup", "true");
 
     // CSRF protection

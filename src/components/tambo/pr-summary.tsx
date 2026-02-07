@@ -239,7 +239,6 @@ export function PRSummary({
     prUrl,
 }: PRSummaryProps) {
     const [copied, setCopied] = useState(false);
-    const [expandedFiles, setExpandedFiles] = useState(false);
 
     // Construct GitHub URL from repo and id if prUrl not provided
     const githubUrl = prUrl || (repo && id ? `https://github.com/${repo}/pull/${id}` : undefined);
@@ -321,7 +320,6 @@ export function PRSummary({
     };
 
     const statusColor = getStatusColor();
-    const displayFiles = expandedFiles ? safeFiles : safeFiles.slice(0, 4);
 
     return (
         <div className="w-full rounded-xl p-6" style={{ backgroundColor: "#0d1117", border: "1px solid #30363d" }}>
@@ -556,26 +554,23 @@ export function PRSummary({
                     <div className="rounded-lg overflow-hidden" style={{ backgroundColor: "#161b22", border: "1px solid #30363d" }}>
                         <div className="px-6 py-4 flex justify-between items-center" style={{ backgroundColor: "rgba(255,255,255,0.02)", borderBottom: "1px solid #21262d" }}>
                             <h3 className="font-semibold text-sm" style={{ color: "#e6edf3" }}>File Breakdown</h3>
-                            <span className="text-xs" style={{ color: "#7d8590" }}>Top {Math.min(files.length, 4)} by complexity</span>
+                            <span className="text-xs" style={{ color: "#7d8590" }}>{safeFiles.length} files changed</span>
                         </div>
-                        <div style={{ borderTop: "1px solid #21262d" }}>
-                            {displayFiles.map((file, i) => (
-                                <div key={i} style={{ borderBottom: i < displayFiles.length - 1 ? "1px solid #21262d" : "none" }}>
+                        <div
+                            className="overflow-y-auto"
+                            style={{
+                                borderTop: "1px solid #21262d",
+                                maxHeight: "320px",
+                                scrollbarWidth: "thin",
+                                scrollbarColor: "#30363d #161b22"
+                            }}
+                        >
+                            {safeFiles.map((file, i) => (
+                                <div key={i} style={{ borderBottom: i < safeFiles.length - 1 ? "1px solid #21262d" : "none" }}>
                                     <FileRow file={file} maxChanges={maxFileChanges} />
                                 </div>
                             ))}
                         </div>
-                        {files.length > 4 && (
-                            <div className="px-6 py-3 text-center" style={{ backgroundColor: "rgba(255,255,255,0.02)", borderTop: "1px solid #21262d" }}>
-                                <button
-                                    onClick={() => setExpandedFiles(!expandedFiles)}
-                                    className="text-xs font-medium uppercase tracking-wide transition-colors"
-                                    style={{ color: "#58a6ff" }}
-                                >
-                                    {expandedFiles ? "Show less" : `View all ${files.length} files`}
-                                </button>
-                            </div>
-                        )}
                     </div>
                 )}
 

@@ -1,131 +1,76 @@
-# Tambo Template
+# GitStory
 
-This is a starter NextJS app with Tambo hooked up to get your AI app development started quickly.
+## Project Overview
 
-## Get Started
+GitStory is an interactive, AI-powered tool designed to visualize and analyze GitHub repositories through a conversational interface. It transforms the way developers interact with code history by providing a chat-based experience that can render rich, interactive components such as commit timelines, pull request summaries, diff viewers, and risk heatmaps. By leveraging advanced AI models and the Tambo framework, GitStory allows users to explore codebases, understand complex changes, and gain insights into repository health without leaving the interface.
 
-1. Run `npm create-tambo@latest my-tambo-app` for a new project
+## Key Features
 
-2. `npm install`
+- **Conversational Interface**: Interact with your repository using natural language to ask questions about commits, PRs, and potential issues.
+- **Interactive Components**:
+  - **Commit Timeline**: Visualize the history of changes with a timeline view.
+  - **PR Summary**: Get detailed summaries of pull requests including status, customized descriptions, and file impacts.
+  - **Diff Viewer**: Review code changes with a syntax-highlighted, side-by-side or unified difference viewer.
+  - **Risk Heatmap**: Identify potential hotspots and high-risk areas in your codebase based on recent activity and complexity.
+- **Repository Context**: Automatically fetches and maintains context for the connected GitHub repository to provide accurate and relevant answers.
+- **Seamless GitHub Integration**: Authenticate securely with GitHub to access private and public repositories.
+- **Dual-View Experience**: Features a chat interface for conversation and a dedicated side panel ("Canvas") for detailed component views, ensuring a clean and organized workflow.
 
-3. `npx tambo init`
+## Technology Stack
 
-- or rename `example.env.local` to `.env.local` and add your tambo API key you can get for free [here](https://tambo.co/dashboard).
+- **Frontend Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **AI Integration**: Tambo SDK (@tambo-ai/react, @tambo-ai/typescript-sdk)
+- **UI Components**: Lucide React for icons, custom components for specific visualizations.
+- **State Management**: React Hooks and Context API for managing thread state and component registry.
 
-4. Run `npm run dev` and go to `localhost:3000` to use the app!
+## Getting Started
 
-## Customizing
+### Prerequisites
 
-### Change what components tambo can control
+- Node.js (Latest LTS version recommended)
+- npm or yarn package manager
+- A GitHub account for authentication
+- A Tambo API key
 
-You can see how components are registered with tambo in `src/lib/tambo.ts`:
+### Installation
 
-```tsx
-export const components: TamboComponent[] = [
-  {
-    name: "Graph",
-    description:
-      "A component that renders various types of charts (bar, line, pie) using Recharts. Supports customizable data visualization with labels, datasets, and styling options.",
-    component: Graph,
-    propsSchema: graphSchema,
-  },
-  // Add more components here
-];
-```
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/gitstory.git
+    cd gitstory
+    ```
 
-You can install the graph component into any project with:
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-```bash
-npx tambo add graph
-```
+3.  **Environment Configuration:**
+    Create a `.env.local` file in the root directory and add your API key:
+    ```env
+    NEXT_PUBLIC_TAMBO_API_KEY=your_tambo_api_key
+    ```
 
-The example Graph component demonstrates several key features:
+4.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
 
-- Different prop types (strings, arrays, enums, nested objects)
-- Multiple chart types (bar, line, pie)
-- Customizable styling (variants, sizes)
-- Optional configurations (title, legend, colors)
-- Data visualization capabilities
+5.  **Access the application:**
+    Open `http://localhost:3000` in your browser.
 
-Update the `components` array with any component(s) you want tambo to be able to use in a response!
+## Architecture
 
-You can find more information about the options [here](https://docs.tambo.co/concepts/generative-interfaces/generative-components)
+GitStory utilizes the Tambo framework to bridge the gap between Large Language Models (LLMs) and UI rendering. The application registers specific React components that the AI can dynamically render in response to user queries.
 
-### Add tools for tambo to use
+**Registered Components:**
 
-Tools are defined with `inputSchema` and `outputSchema`:
+- **Commit-Timeline**: Displays a scrolling timeline of commits with details like author, hash, message, and impacted files.
+- **Diff-Viewer**: Provides a side-by-side or unified view of file changes, complete with syntax highlighting and line numbers.
+- **PR-Summary**: Generates a structured summary of a Pull Request, including descriptions, file changes, and status indicators.
+- **Risk-Heatmap**: Visualizes code complexity and churn to highlight potential high-risk areas in the repository.
+- **Contributor-Network**: Visualizes the network of contributors to the repository.
 
-```tsx
-export const tools: TamboTool[] = [
-  {
-    name: "globalPopulation",
-    description:
-      "A tool to get global population trends with optional year range filtering",
-    tool: getGlobalPopulationTrend,
-    inputSchema: z.object({
-      startYear: z.number().optional(),
-      endYear: z.number().optional(),
-    }),
-    outputSchema: z.array(
-      z.object({
-        year: z.number(),
-        population: z.number(),
-        growthRate: z.number(),
-      }),
-    ),
-  },
-];
-```
-
-Find more information about tools [here.](https://docs.tambo.co/concepts/tools)
-
-### The Magic of Tambo Requires the TamboProvider
-
-Make sure in the TamboProvider wrapped around your app:
-
-```tsx
-...
-<TamboProvider
-  apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
-  components={components} // Array of components to control
-  tools={tools} // Array of tools it can use
->
-  {children}
-</TamboProvider>
-```
-
-In this example we do this in the `Layout.tsx` file, but you can do it anywhere in your app that is a client component.
-
-### Voice input
-
-The template includes a `DictationButton` component using the `useTamboVoice` hook for speech-to-text input.
-
-### MCP (Model Context Protocol)
-
-The template includes MCP support for connecting to external tools and resources. You can use the MCP hooks from `@tambo-ai/react/mcp`:
-
-- `useTamboMcpPromptList` - List available prompts from MCP servers
-- `useTamboMcpPrompt` - Get a specific prompt
-- `useTamboMcpResourceList` - List available resources
-
-See `src/components/tambo/mcp-components.tsx` for example usage.
-
-### Change where component responses are shown
-
-The components used by tambo are shown alongside the message response from tambo within the chat thread, but you can have the result components show wherever you like by accessing the latest thread message's `renderedComponent` field:
-
-```tsx
-const { thread } = useTambo();
-const latestComponent =
-  thread?.messages[thread.messages.length - 1]?.renderedComponent;
-
-return (
-  <div>
-    {latestComponent && (
-      <div className="my-custom-wrapper">{latestComponent}</div>
-    )}
-  </div>
-);
-```
-
-For more detailed documentation, visit [Tambo's official docs](https://docs.tambo.co).
+These components are integrated directly into the chat stream and can be viewed in a dedicated, expandable side panel ("Canvas") for better readability and interaction. The application follows a modern Next.js 14 architecture, leveraging server components and client-side interactivity where appropriate.

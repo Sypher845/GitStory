@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Info, AlertTriangle, XCircle, Lightbulb } from "lucide-react";
 import { z } from "zod";
@@ -91,6 +91,30 @@ export function DiffViewer({
 
     const [viewMode, setViewMode] = useState<"split" | "unified">("split");
     const [showAnnotations, setShowAnnotations] = useState(true);
+
+    // Refs for synchronized vertical scrolling in split view
+    const beforePanelRef = useRef<HTMLDivElement>(null);
+    const afterPanelRef = useRef<HTMLDivElement>(null);
+    const isScrolling = useRef(false);
+
+    // Sync vertical scroll between panels
+    const handleBeforeScroll = useCallback(() => {
+        if (isScrolling.current) return;
+        isScrolling.current = true;
+        if (beforePanelRef.current && afterPanelRef.current) {
+            afterPanelRef.current.scrollTop = beforePanelRef.current.scrollTop;
+        }
+        requestAnimationFrame(() => { isScrolling.current = false; });
+    }, []);
+
+    const handleAfterScroll = useCallback(() => {
+        if (isScrolling.current) return;
+        isScrolling.current = true;
+        if (beforePanelRef.current && afterPanelRef.current) {
+            beforePanelRef.current.scrollTop = afterPanelRef.current.scrollTop;
+        }
+        requestAnimationFrame(() => { isScrolling.current = false; });
+    }, []);
 
     // Memoize the diff computation
     const diffLines = useMemo(() => {
@@ -294,19 +318,24 @@ export function DiffViewer({
                 style={{ backgroundColor: "#0d1117", border: "1px solid #30363d" }}
             >
                 {viewMode === "split" ? (
-                    /* Split View */
+                    /* Split View - Synchronized vertical scroll, independent horizontal scroll */
                     <div className="grid grid-cols-2 divide-x" style={{ borderColor: "#21262d" }}>
-                        {/* Before */}
-                        <div>
+                        {/* Before Panel */}
+                        <div className="flex flex-col">
                             <div
-                                className="px-4 py-2 border-b"
+                                className="px-4 py-2 border-b flex-shrink-0"
                                 style={{ backgroundColor: "#3d1319", borderColor: "#21262d" }}
                             >
                                 <span className="text-sm" style={{ color: "#f85149", fontWeight: "600" }}>
                                     Before
                                 </span>
                             </div>
-                            <div className="overflow-x-auto overflow-y-auto" style={{ fontFamily: "monospace", fontSize: "0.875rem", height: `${panelHeight}px` }}>
+                            <div
+                                ref={beforePanelRef}
+                                onScroll={handleBeforeScroll}
+                                className="overflow-auto"
+                                style={{ fontFamily: "monospace", fontSize: "0.875rem", height: `${panelHeight}px` }}
+                            >
                                 <div style={{ minWidth: "max-content" }}>
                                     {beforeLines.slice(0, 500).map((line, idx) => {
                                         const isRemoved = !afterLinesSet.has(line);
@@ -339,17 +368,22 @@ export function DiffViewer({
                             </div>
                         </div>
 
-                        {/* After */}
-                        <div>
+                        {/* After Panel */}
+                        <div className="flex flex-col">
                             <div
-                                className="px-4 py-2 border-b"
+                                className="px-4 py-2 border-b flex-shrink-0"
                                 style={{ backgroundColor: "#033a16", borderColor: "#21262d" }}
                             >
                                 <span className="text-sm" style={{ color: "#3fb950", fontWeight: "600" }}>
                                     After
                                 </span>
                             </div>
-                            <div className="overflow-x-auto overflow-y-auto" style={{ fontFamily: "monospace", fontSize: "0.875rem", height: `${panelHeight}px` }}>
+                            <div
+                                ref={afterPanelRef}
+                                onScroll={handleAfterScroll}
+                                className="overflow-auto"
+                                style={{ fontFamily: "monospace", fontSize: "0.875rem", height: `${panelHeight}px` }}
+                            >
                                 <div style={{ minWidth: "max-content" }}>
                                     {afterLines.slice(0, 500).map((line, idx) => {
                                         const annotation = getAnnotationForLine(idx + 1);
@@ -416,8 +450,11 @@ export function DiffViewer({
                         </div>
                     </div>
                 ) : (
-                    /* Unified View */
-                    <div className="overflow-x-auto" style={{ fontFamily: "monospace", fontSize: "0.875rem" }}>
+                    /* Unified View - Scrollable container */
+                    <div
+                        className="overflow-auto"
+                        style={{ fontFamily: "monospace", fontSize: "0.875rem", maxHeight: `${panelHeight}px` }}
+                    >
                         <div style={{ minWidth: "max-content" }}>
                             {diffLines.map((line, idx) => {
                                 const annotation = getAnnotationForLine(line.lineNumber);

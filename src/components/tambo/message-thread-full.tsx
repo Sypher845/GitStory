@@ -17,6 +17,7 @@ import {
 } from "@/components/tambo/message-suggestions";
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
 import { RepoContextBadge } from "@/components/tambo/repo-context-badge";
+import { CanvasPanel } from "@/components/tambo/canvas-panel";
 import { ThreadContainer, useThreadContainerContext } from "./thread-container";
 import {
   ThreadContent,
@@ -30,7 +31,8 @@ import {
   ThreadHistorySearch,
 } from "@/components/tambo/thread-history";
 import { useMergeRefs } from "@/lib/thread-hooks";
-import type { Suggestion } from "@tambo-ai/react";
+import { cn } from "@/lib/utils";
+import type { Suggestion, TamboThreadMessage } from "@tambo-ai/react";
 import { useTamboThread, useTamboThreadInput, useTamboThreadList } from "@tambo-ai/react";
 import type { VariantProps } from "class-variance-authority";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -219,92 +221,138 @@ export const MessageThreadFull = React.forwardRef<
   // Check if thread has any messages (to determine layout)
   const hasMessages = thread?.messages && thread.messages.length > 0;
 
+  // Check if there are any rendered components to show in canvas
+  const hasRenderedComponents = React.useMemo(() => {
+    if (!thread?.messages) return false;
+    return thread.messages.some(
+      (m: TamboThreadMessage) => m.role === "assistant" && m.renderedComponent && !m.isCancelled
+    );
+  }, [thread?.messages]);
+
+  // State to track if canvas panel is visible
+  const [showCanvas, setShowCanvas] = React.useState(true);
+
+  // Auto-show canvas when components are available
+  React.useEffect(() => {
+    if (hasRenderedComponents) {
+      setShowCanvas(true);
+    }
+  }, [hasRenderedComponents]);
+
+  // Listen for component show events to re-open canvas if closed
+  React.useEffect(() => {
+    const handleShowComponent = () => {
+      // When user clicks on an artifact card, always show the canvas
+      setShowCanvas(true);
+    };
+
+    window.addEventListener("tambo:showComponent", handleShowComponent);
+    return () => {
+      window.removeEventListener("tambo:showComponent", handleShowComponent);
+    };
+  }, []);
+
   return (
     <div className="flex h-full w-full">
       {/* Thread History Sidebar - rendered first if history is on the left */}
       {historyPosition === "left" && threadHistorySidebar}
 
-      <ThreadContainer
-        ref={mergedRef}
-        disableSidebarSpacing
-        className={className}
-        {...props}
-      >
-        {hasMessages ? (
-          // Normal conversation layout - messages at top, input at bottom
-          <>
-            <ScrollableMessageContainer className="p-4">
-              <ThreadContent variant={variant}>
-                <ThreadContentMessages />
-              </ThreadContent>
-            </ScrollableMessageContainer>
+      {/* Main content area with chat and canvas split */}
+      <div className="flex flex-1 min-w-0 h-full">
+        {/* Chat area - takes remaining space */}
+        <ThreadContainer
+          ref={mergedRef}
+          disableSidebarSpacing
+          className={cn(
+            className,
+            hasRenderedComponents && showCanvas ? "w-1/2 min-w-[400px]" : "w-full"
+          )}
+          {...props}
+        >
+          {hasMessages ? (
+            // Normal conversation layout - messages at top, input at bottom
+            <>
+              <ScrollableMessageContainer className="p-4">
+                <ThreadContent variant={variant}>
+                  <ThreadContentMessages />
+                </ThreadContent>
+              </ScrollableMessageContainer>
 
-            {/* Message suggestions status */}
-            <MessageSuggestions>
-              <MessageSuggestionsStatus />
-            </MessageSuggestions>
+              {/* Message suggestions status */}
+              <MessageSuggestions>
+                <MessageSuggestionsStatus />
+              </MessageSuggestions>
 
-            {/* Message input */}
-            <div className="px-4 pb-4">
-              {/* Show connected repo badge */}
-              <div className="mb-2">
-                <RepoContextBadge />
+              {/* Message input */}
+              <div className="px-4 pb-4">
+                {/* Show connected repo badge */}
+                <div className="mb-2">
+                  <RepoContextBadge />
+                </div>
+                <MessageInput>
+                  <MessageInputTextarea placeholder="Type your message or paste images..." />
+                  <MessageInputToolbar>
+                    <MessageInputFileButton />
+                    <MessageInputImportCodeButton />
+                    <MessageInputSubmitButton />
+                  </MessageInputToolbar>
+                  <MessageInputError />
+                </MessageInput>
               </div>
-              <MessageInput>
-                <MessageInputTextarea placeholder="Type your message or paste images..." />
-                <MessageInputToolbar>
-                  <MessageInputFileButton />
-                  <MessageInputImportCodeButton />
-                  <MessageInputSubmitButton />
-                </MessageInputToolbar>
-                <MessageInputError />
-              </MessageInput>
-            </div>
 
-            {/* Message suggestions */}
-            <MessageSuggestions initialSuggestions={defaultSuggestions}>
-              <MessageSuggestionsList />
-            </MessageSuggestions>
-          </>
-        ) : (
-          // Empty state - centered welcome layout (like Gemini/Claude)
-          <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8">
-            {/* Welcome title */}
-            <div className="mb-8 text-center">
-              <h1 className="text-3xl font-medium text-foreground mb-2">
-                Where should we start?
-              </h1>
-              <p className="text-muted-foreground">
-                Ask me about GitHub repositories, commits, or any code questions
-              </p>
-            </div>
-
-            {/* Centered message input - wider container */}
-            <div className="w-full max-w-4xl">
-              {/* Show connected repo badge */}
-              <div className="mb-2">
-                <RepoContextBadge />
-              </div>
-              <MessageInput>
-                <MessageInputTextarea placeholder="Type your message or paste images..." />
-                <MessageInputToolbar>
-                  <MessageInputFileButton />
-                  <MessageInputImportCodeButton />
-                  <MessageInputSubmitButton />
-                </MessageInputToolbar>
-                <MessageInputError />
-              </MessageInput>
-            </div>
-
-            {/* Message suggestions below the input */}
-            <div className="w-full max-w-4xl mt-4">
+              {/* Message suggestions */}
               <MessageSuggestions initialSuggestions={defaultSuggestions}>
                 <MessageSuggestionsList />
               </MessageSuggestions>
+            </>
+          ) : (
+            // Empty state - centered welcome layout (like Gemini/Claude)
+            <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8">
+              {/* Welcome title */}
+              <div className="mb-8 text-center">
+                <h1 className="text-3xl font-medium text-foreground mb-2">
+                  Where should we start?
+                </h1>
+                <p className="text-muted-foreground">
+                  Ask me about GitHub repositories, commits, or any code questions
+                </p>
+              </div>
+
+              {/* Centered message input - wider container */}
+              <div className="w-full max-w-4xl">
+                {/* Show connected repo badge */}
+                <div className="mb-2">
+                  <RepoContextBadge />
+                </div>
+                <MessageInput>
+                  <MessageInputTextarea placeholder="Type your message or paste images..." />
+                  <MessageInputToolbar>
+                    <MessageInputFileButton />
+                    <MessageInputImportCodeButton />
+                    <MessageInputSubmitButton />
+                  </MessageInputToolbar>
+                  <MessageInputError />
+                </MessageInput>
+              </div>
+
+              {/* Message suggestions below the input */}
+              <div className="w-full max-w-4xl mt-4">
+                <MessageSuggestions initialSuggestions={defaultSuggestions}>
+                  <MessageSuggestionsList />
+                </MessageSuggestions>
+              </div>
             </div>
-          </div>
+          )}
+        </ThreadContainer>
+
+        {/* Canvas Panel - right side for rendered components */}
+        {hasRenderedComponents && showCanvas && (
+          <CanvasPanel
+            className="w-1/2 min-w-[400px] h-full"
+            onClose={() => setShowCanvas(false)}
+          />
         )}
-      </ThreadContainer>
+      </div>
 
       {/* Thread History Sidebar - rendered last if history is on the right */}
       {historyPosition === "right" && threadHistorySidebar}
