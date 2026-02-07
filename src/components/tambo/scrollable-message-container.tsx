@@ -79,11 +79,11 @@ export const ScrollableMessageContainer = React.forwardRef<
     if (!scrollContainer || !messagesContent) return;
 
     const lastMessage = messagesContent[messagesContent.length - 1];
-    const isUserMessage = lastMessage?.role === 'user'; /* user */
+    const isUserMessage = lastMessage?.role === 'user';
 
     // We force auto-scroll if:
     // 1. We are already in "sticky" mode (was at bottom)
-    // 2. OR the last message is from the user (they just sent it, so they want to see it)
+    // 2. OR the last message is from the user
     if (shouldAutoscrollRef.current || isUserMessage) {
       // If we force scroll due to user message, re-enable sticky mode
       if (isUserMessage) {
@@ -104,7 +104,6 @@ export const ScrollableMessageContainer = React.forwardRef<
       if (generationStage === GenerationStage.STREAMING_RESPONSE) {
         requestAnimationFrame(scroll);
       } else {
-        // slightly larger delay to ensure DOM is ready (e.g. images/components)
         setTimeout(scroll, 100);
       }
     }
