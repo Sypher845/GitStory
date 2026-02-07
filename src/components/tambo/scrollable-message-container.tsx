@@ -3,7 +3,7 @@
 import { GenerationStage, useTambo } from "@tambo-ai/react";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useMemo } from "react";
 
 /**
  * Props for the ScrollableMessageContainer component
@@ -30,8 +30,6 @@ export const ScrollableMessageContainer = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { thread } = useTambo();
-  const [shouldAutoscroll, setShouldAutoscroll] = useState(true);
-  const lastScrollTopRef = useRef(0);
 
   // Handle forwarded ref
   React.useImperativeHandle(ref, () => scrollContainerRef.current!, []);
@@ -42,6 +40,7 @@ export const ScrollableMessageContainer = React.forwardRef<
 
     return thread.messages.map((message) => ({
       id: message.id,
+      role: message.role,
       content: message.content,
       tool_calls: message.tool_calls,
       component: message.component,
@@ -55,14 +54,9 @@ export const ScrollableMessageContainer = React.forwardRef<
     [thread?.generationStage],
   );
 
-  // Use a ref for immediate access to the latest scroll state
-  // This prevents the "fighting" behavior where a render update might use stale state
-  const shouldAutoscrollRef = useRef(shouldAutoscroll);
-
-  // Sync ref with state
-  useEffect(() => {
-    shouldAutoscrollRef.current = shouldAutoscroll;
-  }, [shouldAutoscroll]);
+  // Track if we should auto-scroll
+  // precise control using refs to avoid closure stale state
+  const shouldAutoscrollRef = useRef(true);
 
   // Handle scroll events to detect user scrolling
   const handleScroll = useCallback(() => {
@@ -71,49 +65,50 @@ export const ScrollableMessageContainer = React.forwardRef<
     const { scrollTop, scrollHeight, clientHeight } =
       scrollContainerRef.current;
 
-    // Check if user is at the bottom (with tolerance)
-    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+    // Standard "sticky" logic: if we are close to bottom (within 50px), enable auto-scroll.
+    // Otherwise, the user has scrolled up, so disable it.
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isAtBottom = distanceFromBottom < 50;
 
-    // IMPORTANT: Check scroll direction relative to the last known position
-    // If scrollTop DECREASED, the user is scrolling UP.
-    if (scrollTop < lastScrollTopRef.current) {
-      // User scrolled up - disable autoscroll immediately
-      setShouldAutoscroll(false);
-      shouldAutoscrollRef.current = false;
-    }
-    // If user is at bottom, enable autoscroll
-    else if (isAtBottom) {
-      setShouldAutoscroll(true);
-      shouldAutoscrollRef.current = true;
-    }
-
-    lastScrollTopRef.current = scrollTop;
+    shouldAutoscrollRef.current = isAtBottom;
   }, []);
 
-  // Auto-scroll to bottom when message content changes
+  // Auto-scroll logic
   useEffect(() => {
-    // Only scroll if the REF says we should (immediate check)
-    if (scrollContainerRef.current && messagesContent && shouldAutoscrollRef.current) {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || !messagesContent) return;
+
+    const lastMessage = messagesContent[messagesContent.length - 1];
+    const isUserMessage = lastMessage?.role === 'user'; /* user */
+
+    // We force auto-scroll if:
+    // 1. We are already in "sticky" mode (was at bottom)
+    // 2. OR the last message is from the user (they just sent it, so they want to see it)
+    if (shouldAutoscrollRef.current || isUserMessage) {
+      // If we force scroll due to user message, re-enable sticky mode
+      if (isUserMessage) {
+        shouldAutoscrollRef.current = true;
+      }
+
       const scroll = () => {
-        // Double check ref inside the callback in case it changed since schedule
-        if (scrollContainerRef.current && shouldAutoscrollRef.current) {
-          scrollContainerRef.current.scrollTo({
-            top: scrollContainerRef.current.scrollHeight,
-            behavior: "smooth",
+        if (scrollContainer) {
+          scrollContainer.scrollTo({
+            top: scrollContainer.scrollHeight,
+            behavior: generationStage === GenerationStage.STREAMING_RESPONSE ? "auto" : "smooth",
           });
         }
       };
 
+      // Use requestAnimationFrame for immediate updates during streaming
+      // setTimeout for other updates to allow layout to settle
       if (generationStage === GenerationStage.STREAMING_RESPONSE) {
-        // During streaming, scroll immediately
         requestAnimationFrame(scroll);
       } else {
-        // For other updates, use a short delay to batch rapid changes
-        const timeoutId = setTimeout(scroll, 50);
-        return () => clearTimeout(timeoutId);
+        // slightly larger delay to ensure DOM is ready (e.g. images/components)
+        setTimeout(scroll, 100);
       }
     }
-  }, [messagesContent, generationStage]); // Removed shouldAutoscroll from dependency as we use ref, but logically the effect runs on content change mostly
+  }, [messagesContent, generationStage]);
 
   return (
     <div
