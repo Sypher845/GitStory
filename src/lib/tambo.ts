@@ -1,6 +1,7 @@
 import { CommitTimeline, commitTimelineSchema } from "@/components/tambo/commit-timeline";
 import { ContributorNetwork, contributorNetworkSchema } from "@/components/tambo/contributor-network";
 import { PRSummary, prSummarySchema } from "@/components/tambo/pr-summary";
+import { RepoSummary, repoSummarySchema } from "@/components/tambo/repo-summary";
 import { RiskHeatmap, riskHeatmapSchema } from "@/components/tambo/risk-heatmap";
 import type { TamboComponent } from "@tambo-ai/react";
 import { TamboTool } from "@tambo-ai/react";
@@ -89,5 +90,31 @@ FEATURES:
 - Shows file path, risk score, recent changes, and complexity metrics`,
     component: RiskHeatmap,
     propsSchema: riskHeatmapSchema,
+  },
+  {
+    name: "RepoSummary",
+    description: `A comprehensive repository summary showing overview information, stats, topics, and folder structure.
+
+⚠️ CRITICAL: YOU MUST CALL MCP TOOLS TO FETCH REAL REPOSITORY DATA ⚠️
+- ALWAYS call github__get_repository to get REAL repository metadata
+- ALWAYS call github__get_repository_content to get REAL folder structure
+- NEVER fabricate, guess, or hallucinate repository names, descriptions, or file structures
+- ALL data displayed MUST come from actual MCP tool responses
+
+TRIGGER KEYWORDS: "repository summary", "repo summary", "what is this repo", "describe repo", "repository overview", "project overview", "folder structure", "project structure", "explain codebase", "what does this project do", "summarize repo", "about this repository"
+
+MANDATORY WORKFLOW:
+1. FIRST: Call github__get_repository(owner, repo) to get repository metadata (name, description, stars, forks, language, topics)
+2. SECOND: Call github__get_repository_content(owner, repo, path="") to get root folder structure
+3. THIRD: For key directories (src, lib, components), call github__get_repository_content to get their contents
+4. FOURTH: Render RepoSummary with the data including structure with descriptions
+
+STRUCTURE FORMAT:
+- Each folder/file needs: path, type ("file" or "directory"), and optional description
+- Provide meaningful descriptions based on common conventions (e.g., "src" = "Source code", "package.json" = "Project dependencies")
+
+DO NOT USE for: Commit history (use CommitTimeline), PR information (use PRSummary), Contributors (use ContributorNetwork)`,
+    component: RepoSummary,
+    propsSchema: repoSummarySchema,
   },
 ];
