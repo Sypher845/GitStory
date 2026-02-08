@@ -232,6 +232,50 @@ export const MessageThreadFull = React.forwardRef<
   // State to track if canvas panel is visible
   const [showCanvas, setShowCanvas] = React.useState(true);
 
+  // State for resizable panels
+  const [chatWidth, setChatWidth] = React.useState(50); // percentage
+  const [isResizing, setIsResizing] = React.useState(false);
+
+  // Handle mouse down on divider to start resizing
+  const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  // Handle mouse move and mouse up for resizing
+  React.useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const container = document.querySelector('.flex.flex-1.min-w-0.h-full.relative');
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
+
+      // Clamp between 25% and 75%
+      setChatWidth(Math.min(75, Math.max(25, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
   // Auto-show canvas when components are available
   React.useEffect(() => {
     if (hasRenderedComponents) {
@@ -258,15 +302,16 @@ export const MessageThreadFull = React.forwardRef<
       {historyPosition === "left" && threadHistorySidebar}
 
       {/* Main content area with chat and canvas split */}
-      <div className="flex flex-1 min-w-0 h-full">
+      <div className="flex flex-1 min-w-0 h-full relative">
         {/* Chat area - takes remaining space */}
         <ThreadContainer
           ref={mergedRef}
           disableSidebarSpacing
           className={cn(
             className,
-            hasRenderedComponents && showCanvas ? "w-1/2 min-w-[400px]" : "w-full"
+            hasRenderedComponents && showCanvas ? "" : "w-full"
           )}
+          style={hasRenderedComponents && showCanvas ? { width: `${chatWidth}%` } : undefined}
           {...props}
         >
           {hasMessages ? (
@@ -345,10 +390,22 @@ export const MessageThreadFull = React.forwardRef<
           )}
         </ThreadContainer>
 
+        {/* Resizable divider */}
+        {hasRenderedComponents && showCanvas && (
+          <div
+            className="w-1 cursor-col-resize hover:bg-[#58a6ff] transition-colors flex-shrink-0 group"
+            style={{ backgroundColor: isResizing ? "#58a6ff" : "#30363d" }}
+            onMouseDown={handleMouseDown}
+          >
+            <div className="w-1 h-full group-hover:bg-[#58a6ff]" />
+          </div>
+        )}
+
         {/* Canvas Panel - right side for rendered components */}
         {hasRenderedComponents && showCanvas && (
           <CanvasPanel
-            className="w-1/2 min-w-[400px] h-full"
+            className="h-full"
+            style={{ width: `${100 - chatWidth}%` }}
             onClose={() => setShowCanvas(false)}
           />
         )}
