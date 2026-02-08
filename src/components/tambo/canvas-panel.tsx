@@ -30,23 +30,33 @@ export const CanvasPanel = React.forwardRef<HTMLDivElement, CanvasPanelProps>(
             "CommitTimeline": "Commit Timeline",
             "RiskHeatmap": "Risk Heatmap",
             "FileViewer": "File Viewer",
+            "RepoSummary": "Repository Overview",
+            "ContributorNetwork": "Contributor Network",
+            "DiffViewer": "Diff Viewer",
         };
 
         /**
          * Gets a human-readable component name from a React component
+         * Uses multiple strategies to detect the component type
          */
         const getComponentDisplayName = (component: React.ReactNode): string => {
             if (!React.isValidElement(component)) {
                 return "Component";
             }
 
+            // Strategy 1: Check the type's name or displayName
             const type = component.type;
             let typeName = "";
 
             if (typeof type === "function") {
-                typeName = type.name || "";
+                // Check displayName first (more reliable in production builds)
+                typeName = (type as { displayName?: string }).displayName || type.name || "";
             } else if (typeof type === "string") {
                 typeName = type;
+            } else if (typeof type === "object" && type !== null) {
+                // For forwardRef or memo wrapped components
+                const typeObj = type as { displayName?: string; render?: { displayName?: string; name?: string } };
+                typeName = typeObj.displayName || typeObj.render?.displayName || typeObj.render?.name || "";
             }
 
             // Check if it's a known component
@@ -56,11 +66,71 @@ export const CanvasPanel = React.forwardRef<HTMLDivElement, CanvasPanelProps>(
                 }
             }
 
-            // Fallback: try to detect from type name patterns
+            // Strategy 2: Try to infer from the component's children (recursively)
+            const props = component.props as { children?: React.ReactNode };
+            if (props?.children && React.isValidElement(props.children)) {
+                const childType = props.children.type;
+                let childTypeName = "";
+
+                if (typeof childType === "function") {
+                    childTypeName = (childType as { displayName?: string }).displayName || childType.name || "";
+                } else if (typeof childType === "object" && childType !== null) {
+                    const childTypeObj = childType as { displayName?: string; render?: { displayName?: string; name?: string } };
+                    childTypeName = childTypeObj.displayName || childTypeObj.render?.displayName || childTypeObj.render?.name || "";
+                }
+
+                for (const [key, value] of Object.entries(COMPONENT_DISPLAY_NAMES)) {
+                    if (childTypeName.toLowerCase().includes(key.toLowerCase())) {
+                        return value;
+                    }
+                }
+            }
+
+            // Strategy 3: Check props for component-specific properties
+            const componentProps = component.props as Record<string, unknown>;
+
+            // CommitTimeline has 'data' with commits
+            if (componentProps.data && Array.isArray(componentProps.data) &&
+                componentProps.data.length > 0 &&
+                typeof componentProps.data[0] === "object" &&
+                componentProps.data[0] !== null &&
+                "sha" in componentProps.data[0]) {
+                return "Commit Timeline";
+            }
+
+            // RepoSummary has 'fullName' and 'structure'
+            if (componentProps.fullName && typeof componentProps.fullName === "string" &&
+                (componentProps.structure || componentProps.topics)) {
+                return "Repository Overview";
+            }
+
+            // PRSummary has 'prNumber' or 'prUrl'
+            if (componentProps.prNumber || componentProps.prUrl) {
+                return "PR Summary";
+            }
+
+            // RiskHeatmap has 'files' with risk scores
+            if (componentProps.files && Array.isArray(componentProps.files) &&
+                componentProps.files.length > 0 &&
+                typeof componentProps.files[0] === "object" &&
+                componentProps.files[0] !== null &&
+                "riskScore" in componentProps.files[0]) {
+                return "Risk Heatmap";
+            }
+
+            // ContributorNetwork has 'contributors' and 'collaborations'
+            if (componentProps.contributors && componentProps.collaborations) {
+                return "Contributor Network";
+            }
+
+            // Strategy 4: Fallback pattern matching on type name
             const lowerTypeName = typeName.toLowerCase();
             if (lowerTypeName.includes("pr") || lowerTypeName.includes("pull")) return "PR Summary";
-            if (lowerTypeName.includes("commit") || lowerTypeName.includes("timeline")) return "Commit Timeline";
+            if (lowerTypeName.includes("commit") && lowerTypeName.includes("timeline")) return "Commit Timeline";
             if (lowerTypeName.includes("risk") || lowerTypeName.includes("heatmap")) return "Risk Heatmap";
+            if (lowerTypeName.includes("diff")) return "Diff Viewer";
+            if (lowerTypeName.includes("repo") || lowerTypeName.includes("summary")) return "Repository Overview";
+            if (lowerTypeName.includes("contributor") || lowerTypeName.includes("network")) return "Contributor Network";
             if (lowerTypeName.includes("file")) return "File Viewer";
 
             return typeName || "Component";

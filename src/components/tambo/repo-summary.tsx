@@ -47,7 +47,7 @@ export const repoSummarySchema = z.object({
     updatedAt: z.string().optional().describe("Last update date in human-readable format"),
     structure: z.array(FileStructureSchema).optional().describe("Repository folder structure with descriptions"),
     repoUrl: z.string().optional().describe("GitHub repository URL"),
-}).describe("Displays a comprehensive repository summary including description, stats, topics, and folder structure. Use when users ask about what a repository does, project structure, or want an overview.");
+}).describe("Displays a comprehensive repository summary with the project name as the title and a brief description/summary about what the project does below the title. Includes stats, topics, and folder structure. Use when users ask about what a repository does, project structure, or want an overview.");
 
 // --- Types ---
 

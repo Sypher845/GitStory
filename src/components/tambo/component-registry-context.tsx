@@ -11,6 +11,9 @@ const COMPONENT_DISPLAY_NAMES: Record<string, { title: string; subtitle: string 
     "CommitTimeline": { title: "Commit Timeline", subtitle: "Commit History" },
     "RiskHeatmap": { title: "Risk Heatmap", subtitle: "Code Quality Analysis" },
     "FileViewer": { title: "File Viewer", subtitle: "File Contents" },
+    "RepoSummary": { title: "Repository Overview", subtitle: "Project summary and structure" },
+    "ContributorNetwork": { title: "Contributor Network", subtitle: "Collaboration insights" },
+    "DiffViewer": { title: "Diff Viewer", subtitle: "Code changes" },
 };
 
 /**
@@ -42,11 +45,20 @@ function getBaseComponentInfo(component: React.ReactNode): { title: string; subt
     if (lowerTypeName.includes("pr") || lowerTypeName.includes("pull")) {
         return { title: "PR Summary", subtitle: "Pull Request Details" };
     }
-    if (lowerTypeName.includes("commit") || lowerTypeName.includes("timeline")) {
+    if (lowerTypeName.includes("commit") && lowerTypeName.includes("timeline")) {
         return { title: "Commit Timeline", subtitle: "Commit History" };
     }
     if (lowerTypeName.includes("risk") || lowerTypeName.includes("heatmap")) {
         return { title: "Risk Heatmap", subtitle: "Code Quality Analysis" };
+    }
+    if (lowerTypeName.includes("diff")) {
+        return { title: "Diff Viewer", subtitle: "Code changes" };
+    }
+    if (lowerTypeName.includes("repo") || lowerTypeName.includes("summary")) {
+        return { title: "Repository Overview", subtitle: "Project summary and structure" };
+    }
+    if (lowerTypeName.includes("contributor") || lowerTypeName.includes("network")) {
+        return { title: "Contributor Network", subtitle: "Collaboration insights" };
     }
     if (lowerTypeName.includes("file")) {
         return { title: "File Viewer", subtitle: "File Contents" };
