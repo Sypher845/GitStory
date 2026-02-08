@@ -983,7 +983,6 @@ export type MessageRenderedComponentAreaProps =
  * Known component name mappings for better display names
  */
 const COMPONENT_DISPLAY_NAMES: Record<string, { title: string; subtitle: string }> = {
-  "DiffViewer": { title: "Diff Viewer", subtitle: "Code Comparison" },
   "PRSummary": { title: "PR Summary", subtitle: "Pull Request Details" },
   "CommitTimeline": { title: "Commit Timeline", subtitle: "Commit History" },
   "RiskHeatmap": { title: "Risk Heatmap", subtitle: "Code Quality Analysis" },
@@ -1030,9 +1029,6 @@ function getComponentInfo(component: React.ReactNode): { title: string; subtitle
 
   // Fallback: try to detect from type name patterns
   const lowerTypeName = typeName.toLowerCase();
-  if (lowerTypeName.includes("diff")) {
-    return { title: "Diff Viewer", subtitle: "Code Comparison" };
-  }
   if (lowerTypeName.includes("pr") || lowerTypeName.includes("pull")) {
     return { title: "PR Summary", subtitle: "Pull Request Details" };
   }

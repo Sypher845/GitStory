@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { ChevronRight, ExternalLink, Github, Shield } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Github, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTamboThreadInput } from "@tambo-ai/react";
 import { z } from "zod";
@@ -76,38 +76,11 @@ function getGitHubFileUrl(repoUrl: string | undefined, commitId: string, filePat
 export function CommitTimeline({ data, repoUrl }: CommitTimelineProps) {
     const [filter, setFilter] = useState<"all" | "tagged">("all");
     const [expandedCommit, setExpandedCommit] = useState<string | null>(null);
-    const [loadingFile, setLoadingFile] = useState<string | null>(null);
     const [loadingHeatmap, setLoadingHeatmap] = useState<string | null>(null);
 
     // Get Tambo thread input to send messages
     const { setValue, submit } = useTamboThreadInput();
 
-    // Handle file click - auto-send a message to view the diff
-    const handleFileClick = useCallback(async (file: FileChange, commit: Commit) => {
-        // Prevent double-clicks
-        if (loadingFile) return;
-
-        const fileKey = `${commit.id}-${file.path}`;
-        setLoadingFile(fileKey);
-
-        try {
-            // Compose a message asking for the diff
-            const message = `Show me the diff for "${file.path}" in commit ${commit.hash}`;
-
-            // Set the message and submit it
-            setValue(message);
-
-            // Small delay to ensure value is set
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            // Auto-submit the message
-            await submit({ streamResponse: true, resourceNames: {} });
-        } catch (error) {
-            console.error("Failed to send diff request:", error);
-        } finally {
-            setLoadingFile(null);
-        }
-    }, [setValue, submit, loadingFile]);
 
     // Trigger risk heatmap for a commit
     const triggerRiskHeatmap = async (e: React.MouseEvent, commitHash: string, commitMessage: string) => {
@@ -396,10 +369,6 @@ export function CommitTimeline({ data, repoUrl }: CommitTimelineProps) {
                                                                 <div className="space-y-2">
                                                                     {(commit.files ?? []).slice(0, MAX_FILES_TO_SHOW).map((file, idx) => {
                                                                         if (!file) return null;
-                                                                        const fileKey = `${commit.id}-${file.path}`;
-                                                                        const isLoading = loadingFile === fileKey;
-                                                                        const totalChanges = (file.added || 0) + (file.removed || 0);
-                                                                        const isLargeFile = totalChanges > LARGE_CHANGE_THRESHOLD;
                                                                         const githubUrl = getGitHubFileUrl(repoUrl, commit.id, file.path);
 
                                                                         return (
@@ -408,81 +377,36 @@ export function CommitTimeline({ data, repoUrl }: CommitTimelineProps) {
                                                                                 initial={{ x: -10, opacity: 0 }}
                                                                                 animate={{ x: 0, opacity: 1 }}
                                                                                 transition={{ duration: 0.2, delay: idx * 0.05 }}
-                                                                                className={`flex items-center justify-between p-3 rounded-md ${!isLargeFile ? 'cursor-pointer group' : ''}`}
+                                                                                className="flex items-center justify-between p-3 rounded-md"
                                                                                 style={{
-                                                                                    backgroundColor: isLargeFile ? "#2d1f00" : (isLoading ? "#1f2937" : "#161b22"),
-                                                                                    border: isLargeFile ? "1px solid #e09e13" : (isLoading ? "1px solid #58a6ff" : "1px solid #30363d"),
-                                                                                }}
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    if (!isLargeFile) {
-                                                                                        handleFileClick(file, commit);
-                                                                                    }
-                                                                                }}
-                                                                                onMouseEnter={(e) => {
-                                                                                    if (!isLoading && !isLargeFile) {
-                                                                                        e.currentTarget.style.backgroundColor = "#1f2937";
-                                                                                        e.currentTarget.style.borderColor = "#58a6ff";
-                                                                                    }
-                                                                                }}
-                                                                                onMouseLeave={(e) => {
-                                                                                    if (!isLoading && !isLargeFile) {
-                                                                                        e.currentTarget.style.backgroundColor = "#161b22";
-                                                                                        e.currentTarget.style.borderColor = "#30363d";
-                                                                                    }
+                                                                                    backgroundColor: "#161b22",
+                                                                                    border: "1px solid #30363d",
                                                                                 }}
                                                                             >
                                                                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                                                    {isLoading ? (
-                                                                                        <div className="w-4 h-4 flex-shrink-0 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                                                                                    ) : (
-                                                                                        <svg
-                                                                                            className="w-4 h-4 flex-shrink-0"
-                                                                                            fill="none"
-                                                                                            stroke={isLargeFile ? "#f0c541" : "#7d8590"}
-                                                                                            viewBox="0 0 24 24"
-                                                                                        >
-                                                                                            <path
-                                                                                                strokeLinecap="round"
-                                                                                                strokeLinejoin="round"
-                                                                                                strokeWidth={2}
-                                                                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                                                                            />
-                                                                                        </svg>
-                                                                                    )}
+                                                                                    <svg
+                                                                                        className="w-4 h-4 flex-shrink-0"
+                                                                                        fill="none"
+                                                                                        stroke="#7d8590"
+                                                                                        viewBox="0 0 24 24"
+                                                                                    >
+                                                                                        <path
+                                                                                            strokeLinecap="round"
+                                                                                            strokeLinejoin="round"
+                                                                                            strokeWidth={2}
+                                                                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                                                                        />
+                                                                                    </svg>
                                                                                     <span
-                                                                                        className={`truncate ${!isLargeFile ? 'group-hover:underline' : ''}`}
+                                                                                        className="truncate"
                                                                                         style={{
-                                                                                            color: isLargeFile ? "#f0c541" : "#58a6ff",
+                                                                                            color: "#58a6ff",
                                                                                             fontFamily: "var(--font-family-mono)",
                                                                                             fontSize: "0.875rem",
                                                                                         }}
                                                                                     >
                                                                                         {file.path}
                                                                                     </span>
-                                                                                    {isLargeFile ? (
-                                                                                        <span
-                                                                                            className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1"
-                                                                                            style={{
-                                                                                                backgroundColor: "#3d2c00",
-                                                                                                color: "#f0c541",
-                                                                                                border: "1px solid #e09e13",
-                                                                                            }}
-                                                                                        >
-                                                                                            Large file ({totalChanges} lines)
-                                                                                        </span>
-                                                                                    ) : (
-                                                                                        <span
-                                                                                            className="text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-                                                                                            style={{
-                                                                                                backgroundColor: "#238636",
-                                                                                                color: "#ffffff",
-                                                                                            }}
-                                                                                        >
-                                                                                            <ExternalLink className="w-3 h-3" />
-                                                                                            {isLoading ? "Loading..." : "View Diff"}
-                                                                                        </span>
-                                                                                    )}
                                                                                 </div>
                                                                                 <div className="flex items-center gap-3 ml-4 flex-shrink-0">
                                                                                     <span

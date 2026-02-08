@@ -1,6 +1,5 @@
 import { CommitTimeline, commitTimelineSchema } from "@/components/tambo/commit-timeline";
 import { ContributorNetwork, contributorNetworkSchema } from "@/components/tambo/contributor-network";
-import { DiffViewer, diffViewerSchema } from "@/components/tambo/diff-viewer";
 import { PRSummary, prSummarySchema } from "@/components/tambo/pr-summary";
 import { RiskHeatmap, riskHeatmapSchema } from "@/components/tambo/risk-heatmap";
 import type { TamboComponent } from "@tambo-ai/react";
@@ -50,46 +49,11 @@ IF API RETURNS NO COMMITS:
 
 TRIGGER KEYWORDS: "contributors", "who contributed", "team", "authors", "developers", "maintainers", "who worked on", "committers", "people", "collaboration"
 
-DO NOT USE for: commit history (use CommitTimeline), code changes (use DiffViewer), file analysis (use RiskHeatmap)`,
+DO NOT USE for: commit history (use CommitTimeline), file analysis (use RiskHeatmap)`,
     component: ContributorNetwork,
     propsSchema: contributorNetworkSchema,
   },
-  {
-    name: "DiffViewer",
-    description: `A side-by-side or unified code diff viewer showing exactly what changed in a specific file within a commit.
 
-⚠️ CRITICAL: YOU MUST FETCH REAL DIFF DATA - NEVER FABRICATE CODE ⚠️
-- NEVER fabricate, guess, or hallucinate code content
-- NEVER make up code based on filename or repository name
-- If MCP tools don't return file content, report this to the user instead of inventing code
-
-TRIGGER KEYWORDS: "diff", "show diff", "view diff", "what changed in file", "code changes", "file changes", "compare", "before and after", "line changes"
-
-RECOMMENDED WORKFLOW (Use github__get_commit with include_diff):
-1. Call github__get_commit(owner, repo, sha, include_diff=true)
-2. The response includes a "files" array with each file's "patch" field containing the unified diff
-3. Parse the patch to extract before/after content, OR
-4. Tell the user to view the diff on GitHub directly if patch content is not available
-
-ALTERNATIVE WORKFLOW (If get_file_contents returns actual content):
-1. Get the commit details to find the parent SHA
-2. Call github__get_file_contents(owner, repo, path, sha=PARENT_SHA) for beforeCode
-3. Call github__get_file_contents(owner, repo, path, sha=COMMIT_SHA) for afterCode
-4. Render with the ACTUAL returned content
-
-IF MCP RETURNS METADATA ONLY (no actual file text):
-- DO NOT render DiffViewer with hallucinated code
-- Instead, tell the user: "I fetched the commit metadata (file: X, +Y/-Z lines) but the actual file content is not available in this environment. You can view the full diff at: [GitHub commit URL]"
-- Provide the GitHub link: https://github.com/{owner}/{repo}/commit/{sha}
-
-VALID STATES FOR RENDERING:
-- Both empty + fileName = shows "content unavailable" (OK!)
-- beforeCode empty = file was ADDED (new file)
-- afterCode empty = file was DELETED
-- Both have REAL fetched content = normal diff comparison`,
-    component: DiffViewer,
-    propsSchema: diffViewerSchema,
-  },
   {
     name: "PRSummary",
     description: `A comprehensive pull request summary card showing PR metadata, stats, reviewers, and file changes.
@@ -101,7 +65,7 @@ VALID STATES FOR RENDERING:
 
 TRIGGER KEYWORDS: "pull request", "PR", "merge request", "code review", "PR summary", "review", "PR details", "open PRs", "pull requests"
 
-DO NOT USE for: Commit history (use CommitTimeline), Single file diffs (use DiffViewer), Code quality metrics (use RiskHeatmap)`,
+DO NOT USE for: Commit history (use CommitTimeline), Code quality metrics (use RiskHeatmap)`,
     component: PRSummary,
     propsSchema: prSummarySchema,
   },
@@ -117,7 +81,7 @@ DO NOT USE for: Commit history (use CommitTimeline), Single file diffs (use Diff
 
 TRIGGER KEYWORDS: "risk", "risky files", "code health", "technical debt", "bug-prone", "hotspots", "complexity", "churn", "trouble areas", "problematic files", "code quality", "needs attention", "code smells"
 
-DO NOT USE for: Commit history (use CommitTimeline), Specific file diffs (use DiffViewer), PR information (use PRSummary)
+DO NOT USE for: Commit history (use CommitTimeline), PR information (use PRSummary)
 
 FEATURES:
 - Sortable by risk score, churn, or complexity
