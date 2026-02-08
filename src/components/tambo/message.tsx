@@ -1068,7 +1068,7 @@ const MessageRenderedComponentArea = React.forwardRef<
   // Get component info using local detection
   const componentInfo = getComponentInfo(message.renderedComponent);
 
-  const handleOpenInCanvas = () => {
+  const handleOpenInCanvas = React.useCallback(() => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("tambo:showComponent", {
@@ -1079,7 +1079,16 @@ const MessageRenderedComponentArea = React.forwardRef<
         }),
       );
     }
-  };
+  }, [message.id, message.renderedComponent]);
+
+  // Auto-open in canvas when component is rendered
+  React.useEffect(() => {
+    // Small delay to ensure canvas is ready
+    const timer = setTimeout(() => {
+      handleOpenInCanvas();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [handleOpenInCanvas]);
 
   return (
     <div
