@@ -1069,19 +1069,16 @@ const MessageRenderedComponentArea = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   const { message, role } = useMessageContext();
 
-  if (
-    !message.renderedComponent ||
-    role !== "assistant" ||
-    message.isCancelled
-  ) {
-    return null;
-  }
-
-  // Get component info using local detection
-  const componentInfo = getComponentInfo(message.renderedComponent);
+  // Get component info using local detection (moved before early return)
+  const componentInfo = React.useMemo(() => {
+    if (!message.renderedComponent) {
+      return { title: "Component", subtitle: "Interactive Component" };
+    }
+    return getComponentInfo(message.renderedComponent);
+  }, [message.renderedComponent]);
 
   const handleOpenInCanvas = React.useCallback(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && message.renderedComponent) {
       window.dispatchEvent(
         new CustomEvent("tambo:showComponent", {
           detail: {
@@ -1095,12 +1092,24 @@ const MessageRenderedComponentArea = React.forwardRef<
 
   // Auto-open in canvas when component is rendered
   React.useEffect(() => {
+    if (!message.renderedComponent || role !== "assistant" || message.isCancelled) {
+      return;
+    }
     // Small delay to ensure canvas is ready
     const timer = setTimeout(() => {
       handleOpenInCanvas();
     }, 100);
     return () => clearTimeout(timer);
-  }, [handleOpenInCanvas]);
+  }, [handleOpenInCanvas, message.renderedComponent, role, message.isCancelled]);
+
+  // Early return AFTER all hooks have been called
+  if (
+    !message.renderedComponent ||
+    role !== "assistant" ||
+    message.isCancelled
+  ) {
+    return null;
+  }
 
   return (
     <div

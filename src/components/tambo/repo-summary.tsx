@@ -119,7 +119,7 @@ const TreeItem = ({
     const [isExpanded, setIsExpanded] = useState(depth < 2);
     const [showDescription, setShowDescription] = useState(false);
     const hasChildren = item.type === "directory" && item.children && item.children.length > 0;
-    const fileName = item.path.split("/").pop() || item.path;
+    const fileName = item.path?.split("/").pop() || item.path || "unknown";
 
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -240,6 +240,10 @@ export function RepoSummary({
     structure = [],
     repoUrl,
 }: RepoSummaryProps) {
+    // Ensure topics and structure are always arrays (handle explicit null)
+    const safeTopics = topics ?? [];
+    const safeStructure = structure ?? [];
+
     // Construct GitHub URL
     const githubUrl = repoUrl || (fullName ? `https://github.com/${fullName}` : undefined);
 
@@ -378,7 +382,7 @@ export function RepoSummary({
                 )}
 
                 {/* Topics */}
-                {topics.length > 0 && (
+                {safeTopics.length > 0 && (
                     <div
                         className="rounded-lg p-5"
                         style={{ backgroundColor: "#161b22", border: "1px solid #30363d" }}
@@ -391,7 +395,7 @@ export function RepoSummary({
                             Topics
                         </h3>
                         <div className="flex flex-wrap gap-2">
-                            {topics.map((topic) => (
+                            {safeTopics.map((topic) => (
                                 <span
                                     key={topic}
                                     className="px-3 py-1 rounded-full text-xs font-medium"
@@ -409,7 +413,7 @@ export function RepoSummary({
                 )}
 
                 {/* Folder Structure */}
-                {structure.length > 0 && (
+                {safeStructure.length > 0 && (
                     <div
                         className="rounded-lg overflow-hidden"
                         style={{ backgroundColor: "#161b22", border: "1px solid #30363d" }}
@@ -427,8 +431,8 @@ export function RepoSummary({
                             className="p-4 overflow-y-auto"
                             style={{ maxHeight: "400px", scrollbarWidth: "thin", scrollbarColor: "#30363d #161b22" }}
                         >
-                            {structure.map((item, index) => (
-                                <TreeItem key={item.path} item={item} isLast={index === structure.length - 1} />
+                            {safeStructure.filter(item => item && item.path).map((item, index) => (
+                                <TreeItem key={item.path || `item-${index}`} item={item} isLast={index === safeStructure.length - 1} />
                             ))}
                         </div>
                     </div>

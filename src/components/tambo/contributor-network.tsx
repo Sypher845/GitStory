@@ -452,9 +452,9 @@ export function ContributorNetwork({ contributors, collaborations }: Contributor
                                             </span>
                                         </div>
                                         <div className="space-y-2">
-                                            {getCollaborators(selectedContributor.id).map((collaborator) => (
+                                            {getCollaborators(selectedContributor.id).map((collaborator, idx) => (
                                                 <div
-                                                    key={collaborator.id}
+                                                    key={collaborator.id || `collab-${idx}`}
                                                     className="p-3 rounded-lg"
                                                     style={{ backgroundColor: "#161b22", border: "1px solid #21262d" }}
                                                 >
