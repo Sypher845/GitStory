@@ -26,7 +26,6 @@ export const CanvasPanel = React.forwardRef<HTMLDivElement, CanvasPanelProps>(
          * Known component name mappings for better display names
          */
         const COMPONENT_DISPLAY_NAMES: Record<string, string> = {
-            "DiffViewer": "Diff Viewer",
             "PRSummary": "PR Summary",
             "CommitTimeline": "Commit Timeline",
             "RiskHeatmap": "Risk Heatmap",
@@ -59,7 +58,6 @@ export const CanvasPanel = React.forwardRef<HTMLDivElement, CanvasPanelProps>(
 
             // Fallback: try to detect from type name patterns
             const lowerTypeName = typeName.toLowerCase();
-            if (lowerTypeName.includes("diff")) return "Diff Viewer";
             if (lowerTypeName.includes("pr") || lowerTypeName.includes("pull")) return "PR Summary";
             if (lowerTypeName.includes("commit") || lowerTypeName.includes("timeline")) return "Commit Timeline";
             if (lowerTypeName.includes("risk") || lowerTypeName.includes("heatmap")) return "Risk Heatmap";
